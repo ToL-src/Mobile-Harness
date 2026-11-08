@@ -100,6 +100,7 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Description
@@ -262,6 +263,7 @@ import com.jarves.mh.network.ConnectionValidation
 import com.jarves.mh.network.DiscoveredModel
 import com.jarves.mh.network.ModelDiscoveryResult
 import com.jarves.mh.network.GitHubRepository
+import com.jarves.mh.network.GitLabRepository
 import com.jarves.mh.ui.theme.PocketBlue
 import com.jarves.mh.ui.theme.PocketGreen
 import com.jarves.mh.ui.theme.PocketOrange
@@ -2543,6 +2545,10 @@ private fun RootScreenHost(
                     onRefreshGitHub = viewModel::refreshGitHubRepositories,
                     onDisconnectGitHub = viewModel::disconnectGitHub,
                     onCloneGitHub = viewModel::cloneGitHubRepository,
+                    onConnectGitLab = viewModel::connectGitLab,
+                    onRefreshGitLab = viewModel::refreshGitLabRepositories,
+                    onDisconnectGitLab = viewModel::disconnectGitLab,
+                    onCloneGitLab = viewModel::cloneGitLabRepository,
                     onRenameProject = viewModel::renameProject,
                     onDeleteProject = viewModel::deleteProject,
                     onSettings = { screen = RootScreen.SETTINGS },
@@ -3603,6 +3609,10 @@ private fun ProjectsScreen(
     onRefreshGitHub: () -> Unit,
     onDisconnectGitHub: () -> Unit,
     onCloneGitHub: (GitHubRepository) -> Unit,
+    onConnectGitLab: (String, String) -> Unit,
+    onRefreshGitLab: () -> Unit,
+    onDisconnectGitLab: () -> Unit,
+    onCloneGitLab: (GitLabRepository) -> Unit,
     onRenameProject: (String, String) -> Unit,
     onDeleteProject: (String) -> Unit,
     onSettings: () -> Unit,
@@ -3614,9 +3624,18 @@ private fun ProjectsScreen(
     var showUpdateDialog by rememberSaveable { mutableStateOf(false) }
     var showGitDialog by rememberSaveable { mutableStateOf(false) }
     var showGitHubDialog by rememberSaveable { mutableStateOf(false) }
+    var showGitLabDialog by rememberSaveable { mutableStateOf(false) }
     var importExpanded by rememberSaveable { mutableStateOf(false) }
     var gitUrl by rememberSaveable { mutableStateOf("") }
     var repositorySearch by rememberSaveable { mutableStateOf("") }
+    var gitlabRepositorySearch by rememberSaveable { mutableStateOf("") }
+    var gitlabHostInput by rememberSaveable { mutableStateOf(state.gitlabHost ?: "gitlab.com") }
+    var gitlabTokenInput by rememberSaveable { mutableStateOf("") }
+    LaunchedEffect(state.gitlabAuthStatus) {
+        if (state.gitlabAuthStatus == GitLabAuthStatus.CONNECTED) {
+            gitlabTokenInput = ""
+        }
+    }
     var name by rememberSaveable { mutableStateOf("") }
     var androidTemplate by rememberSaveable { mutableStateOf<AndroidTemplate?>(null) }
     val projects = state.projects
@@ -3771,6 +3790,55 @@ private fun ProjectsScreen(
                                             )
                                             Text(
                                                 stringResource(if (state.githubLogin != null) R.string.projects_browse_repositories else R.string.projects_sign_in_repositories),
+                                                fontSize = 10.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        }
+                                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth().clickable(enabled = !state.gitCloneRunning) {
+                                        showGitLabDialog = true
+                                        state.gitlabHost?.let { gitlabHostInput = it }
+                                        if (state.gitlabAuthStatus == GitLabAuthStatus.CONNECTED && state.gitlabRepositories.isEmpty()) {
+                                            onRefreshGitLab()
+                                        }
+                                    },
+                                    color = MaterialTheme.colorScheme.surface,
+                                    shape = RoundedCornerShape(13.dp),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                                ) {
+                                    Row(
+                                        Modifier.padding(horizontal = 12.dp, vertical = 11.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Icon(Icons.Default.Cloud, null, tint = PocketOrange, modifier = Modifier.size(19.dp))
+                                        Spacer(Modifier.width(10.dp))
+                                        Column(Modifier.weight(1f)) {
+                                            Text(
+                                                when {
+                                                    state.gitlabLogin != null && state.gitlabHost != null ->
+                                                        stringResource(
+                                                            R.string.projects_gitlab_host_account,
+                                                            state.gitlabHost,
+                                                            state.gitlabLogin,
+                                                        )
+                                                    state.gitlabLogin != null ->
+                                                        stringResource(R.string.projects_gitlab_account, state.gitlabLogin)
+                                                    else -> stringResource(R.string.projects_connect_gitlab)
+                                                },
+                                                fontSize = 12.5.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                            )
+                                            Text(
+                                                stringResource(
+                                                    if (state.gitlabLogin != null) {
+                                                        R.string.projects_browse_gitlab
+                                                    } else {
+                                                        R.string.projects_connect_gitlab_desc
+                                                    },
+                                                ),
                                                 fontSize = 10.sp,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             )
@@ -4062,6 +4130,157 @@ private fun ProjectsScreen(
                     TextButton(onClick = { onDisconnectGitHub(); showGitHubDialog = false }) { Text(stringResource(R.string.ws_disconnect)) }
                 } else if (state.githubAuthStatus != GitHubAuthStatus.STARTING) {
                     TextButton(onClick = { showGitHubDialog = false }) { Text(stringResource(R.string.action_cancel)) }
+                }
+            },
+        )
+    }
+    if (showGitLabDialog) {
+        val filteredGitLabRepositories = state.gitlabRepositories.filter { repository ->
+            gitlabRepositorySearch.isBlank() ||
+                repository.pathWithNamespace.contains(gitlabRepositorySearch, ignoreCase = true) ||
+                repository.description.contains(gitlabRepositorySearch, ignoreCase = true)
+        }
+        AlertDialog(
+            onDismissRequest = {
+                if (!state.gitCloneRunning && state.gitlabAuthStatus != GitLabAuthStatus.CONNECTING) {
+                    showGitLabDialog = false
+                }
+            },
+            icon = { Icon(Icons.Default.Cloud, null, tint = PocketOrange) },
+            title = {
+                Text(
+                    when {
+                        state.gitlabLogin != null && state.gitlabHost != null ->
+                            stringResource(R.string.projects_gitlab_host_account, state.gitlabHost, state.gitlabLogin)
+                        state.gitlabLogin != null ->
+                            stringResource(R.string.projects_gitlab_account, state.gitlabLogin)
+                        else -> stringResource(R.string.projects_connect_gitlab)
+                    },
+                )
+            },
+            text = {
+                when (state.gitlabAuthStatus) {
+                    GitLabAuthStatus.DISCONNECTED, GitLabAuthStatus.ERROR -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(
+                            state.gitlabMessage ?: stringResource(R.string.ws_gitlab_connect_desc),
+                            color = if (state.gitlabAuthStatus == GitLabAuthStatus.ERROR) {
+                                MaterialTheme.colorScheme.error
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                            fontSize = 13.sp,
+                        )
+                        OutlinedTextField(
+                            value = gitlabHostInput,
+                            onValueChange = { gitlabHostInput = it },
+                            label = { Text(stringResource(R.string.ws_gitlab_host)) },
+                            placeholder = { Text("gitlab.com") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        OutlinedTextField(
+                            value = gitlabTokenInput,
+                            onValueChange = { gitlabTokenInput = it },
+                            label = { Text(stringResource(R.string.ws_gitlab_token)) },
+                            supportingText = { Text(stringResource(R.string.ws_gitlab_token_help)) },
+                            singleLine = true,
+                            visualTransformation = PasswordVisualTransformation(),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Button(
+                            onClick = { onConnectGitLab(gitlabHostInput, gitlabTokenInput) },
+                            enabled = gitlabTokenInput.isNotBlank(),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) { Text(stringResource(R.string.ws_gitlab_connect)) }
+                    }
+                    GitLabAuthStatus.CONNECTING -> Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 2.5.dp)
+                        Spacer(Modifier.height(12.dp))
+                        Text(state.gitlabMessage ?: stringResource(R.string.ws_gitlab_connecting))
+                    }
+                    GitLabAuthStatus.CONNECTED -> Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                state.gitlabMessage ?: stringResource(R.string.ws_gitlab_select_repo),
+                                modifier = Modifier.weight(1f),
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            IconButton(onClick = onRefreshGitLab, enabled = !state.gitlabRepositoriesLoading) {
+                                Icon(Icons.Default.Refresh, stringResource(R.string.ws_gitlab_refresh_repos))
+                            }
+                        }
+                        OutlinedTextField(
+                            value = gitlabRepositorySearch,
+                            onValueChange = { gitlabRepositorySearch = it },
+                            placeholder = { Text(stringResource(R.string.ws_gitlab_search_repos)) },
+                            leadingIcon = { Icon(Icons.Default.Search, null) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        if (state.gitlabRepositoriesLoading) {
+                            LinearProgressIndicator(Modifier.fillMaxWidth())
+                        }
+                        LazyColumn(
+                            Modifier.fillMaxWidth().heightIn(max = 350.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            items(filteredGitLabRepositories, key = { it.pathWithNamespace }) { repository ->
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth().clickable(enabled = !state.gitCloneRunning) {
+                                        showGitLabDialog = false
+                                        onCloneGitLab(repository)
+                                    },
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                                ) {
+                                    Row(Modifier.padding(11.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            if (repository.private) Icons.Default.Key else Icons.Default.Code,
+                                            null,
+                                            modifier = Modifier.size(17.dp),
+                                            tint = PocketOrange,
+                                        )
+                                        Spacer(Modifier.width(9.dp))
+                                        Column(Modifier.weight(1f)) {
+                                            Text(
+                                                repository.pathWithNamespace,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                            )
+                                            Text(
+                                                "${if (repository.private) stringResource(R.string.ws_repo_private) else stringResource(R.string.ws_repo_public)} · ${repository.defaultBranch}",
+                                                fontSize = 10.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                if (state.gitlabAuthStatus == GitLabAuthStatus.CONNECTED) {
+                    TextButton(onClick = { showGitLabDialog = false }) { Text(stringResource(R.string.action_close)) }
+                }
+            },
+            dismissButton = {
+                if (state.gitlabAuthStatus == GitLabAuthStatus.CONNECTED) {
+                    TextButton(
+                        onClick = {
+                            onDisconnectGitLab()
+                            showGitLabDialog = false
+                        },
+                    ) { Text(stringResource(R.string.ws_disconnect)) }
+                } else if (state.gitlabAuthStatus != GitLabAuthStatus.CONNECTING) {
+                    TextButton(onClick = { showGitLabDialog = false }) { Text(stringResource(R.string.action_cancel)) }
                 }
             },
         )

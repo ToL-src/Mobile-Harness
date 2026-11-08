@@ -67,6 +67,15 @@
     <string name="ws_https_git_url">URL de Git HTTPS</string>
     <string name="ws_clone_project">Clonar proyecto</string>
     <string name="ws_github_signin_desc">Inicia sesión con la CLI oficial de GitHub para explorar repositorios públicos y privados.</string>
+    <string name="ws_gitlab_connect_desc">Conéctate con un Personal Access Token para explorar proyectos privados de GitLab. Se admiten servidores propios.</string>
+    <string name="ws_gitlab_host">Host de GitLab</string>
+    <string name="ws_gitlab_token">Personal Access Token</string>
+    <string name="ws_gitlab_token_help">Permisos: read_api y read_repository</string>
+    <string name="ws_gitlab_connect">Conectar GitLab</string>
+    <string name="ws_gitlab_connecting">Conectando a GitLab…</string>
+    <string name="ws_gitlab_select_repo">Selecciona un proyecto</string>
+    <string name="ws_gitlab_refresh_repos">Actualizar proyectos</string>
+    <string name="ws_gitlab_search_repos">Buscar proyectos</string>
     <string name="ws_github_signin">Iniciar sesión con GitHub</string>
     <string name="ws_github_starting">Iniciando sesión con GitHub…</string>
     <string name="ws_github_enter_code">Introduce este código de un solo uso en la página de GitHub abierta en tu navegador.</string>

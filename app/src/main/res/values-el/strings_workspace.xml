@@ -67,6 +67,15 @@
     <string name="ws_https_git_url">URL Git (HTTPS)</string>
     <string name="ws_clone_project">Κλωνοποίηση έργου</string>
     <string name="ws_github_signin_desc">Συνδεθείτε με το επίσημο CLI του GitHub για να περιηγηθείτε σε δημόσια και ιδιωτικά αποθετήρια.</string>
+    <string name="ws_gitlab_connect_desc">Συνδεθείτε με Personal Access Token για περιήγηση σε ιδιωτικά έργα GitLab. Υποστηρίζονται αυτοφιλοξενούμενοι διακομιστές.</string>
+    <string name="ws_gitlab_host">Κεντρικός υπολογιστής GitLab</string>
+    <string name="ws_gitlab_token">Personal Access Token</string>
+    <string name="ws_gitlab_token_help">Δικαιώματα: read_api και read_repository</string>
+    <string name="ws_gitlab_connect">Σύνδεση GitLab</string>
+    <string name="ws_gitlab_connecting">Σύνδεση στο GitLab…</string>
+    <string name="ws_gitlab_select_repo">Επιλέξτε έργο</string>
+    <string name="ws_gitlab_refresh_repos">Ανανέωση έργων</string>
+    <string name="ws_gitlab_search_repos">Αναζήτηση έργων</string>
     <string name="ws_github_signin">Σύνδεση με GitHub</string>
     <string name="ws_github_starting">Έναρξη σύνδεσης GitHub…</string>
     <string name="ws_github_enter_code">Εισαγάγετε αυτόν τον κωδικό μίας χρήσης στη σελίδα GitHub που άνοιξε στο πρόγραμμα περιήγησης.</string>

@@ -67,6 +67,15 @@
     <string name="ws_https_git_url">HTTPS-адрес Git</string>
     <string name="ws_clone_project">Клонировать проект</string>
     <string name="ws_github_signin_desc">Войдите через официальный CLI GitHub, чтобы просматривать публичные и приватные репозитории.</string>
+    <string name="ws_gitlab_connect_desc">Подключитесь с Personal Access Token, чтобы просматривать приватные проекты GitLab. Поддерживаются свои серверы.</string>
+    <string name="ws_gitlab_host">Хост GitLab</string>
+    <string name="ws_gitlab_token">Personal Access Token</string>
+    <string name="ws_gitlab_token_help">Права: read_api и read_repository</string>
+    <string name="ws_gitlab_connect">Подключить GitLab</string>
+    <string name="ws_gitlab_connecting">Подключение к GitLab…</string>
+    <string name="ws_gitlab_select_repo">Выберите проект</string>
+    <string name="ws_gitlab_refresh_repos">Обновить проекты</string>
+    <string name="ws_gitlab_search_repos">Поиск проектов</string>
     <string name="ws_github_signin">Войти через GitHub</string>
     <string name="ws_github_starting">Запуск входа через GitHub…</string>
     <string name="ws_github_enter_code">Введите этот одноразовый код на странице GitHub, открытой в браузере.</string>

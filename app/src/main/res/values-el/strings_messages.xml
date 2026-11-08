@@ -85,6 +85,15 @@
     <string name="vm_import_too_large">Το εισαγόμενο έργο είναι πολύ μεγάλο για τον διαθέσιμο χώρο</string>
     <string name="vm_zip_preserve_failed">Δεν ήταν δυνατή η διατήρηση του επιλεγμένου ZIP</string>
     <string name="vm_github_connect_again">Συνδέστε ξανά το GitHub</string>
+    <string name="vm_gitlab_connect_again">Συνδέστε ξανά το GitLab</string>
+    <string name="vm_gitlab_token_required">Εισαγάγετε Personal Access Token του GitLab</string>
+    <string name="vm_gitlab_connecting">Σύνδεση στο GitLab…</string>
+    <string name="vm_gitlab_connected_as">Συνδεθήκατε ως @%1$s στο %2$s</string>
+    <string name="vm_gitlab_account_unknown">Το GitLab συνδέθηκε, αλλά δεν ήταν δυνατή η αναγνώριση του λογαριασμού</string>
+    <string name="vm_gitlab_connect_failed">Η σύνδεση στο GitLab απέτυχε</string>
+    <string name="vm_gitlab_repos_failed">Δεν ήταν δυνατή η φόρτωση των έργων GitLab</string>
+    <string name="vm_gitlab_signing_out">Αποσύνδεση από το GitLab…</string>
+    <string name="vm_gitlab_host_invalid">Εισαγάγετε έγκυρο κεντρικό υπολογιστή GitLab μέσω HTTPS</string>
     <string name="vm_invalid_git_url">Εισαγάγετε έγκυρη δημόσια διεύθυνση URL Git με HTTPS</string>
     <string name="vm_connecting_git">Σύνδεση στο αποθετήριο Git…</string>
     <string name="vm_cloning_named">Κλωνοποίηση %1$s…</string>

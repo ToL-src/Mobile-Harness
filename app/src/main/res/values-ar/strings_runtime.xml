@@ -132,6 +132,7 @@
     <string name="rt_gh_code_expired">انتهت صلاحية رمز تسجيل الدخول إلى GitHub. حاول مرة أخرى.</string>
     <string name="rt_gh_sign_in_failed">فشل تسجيل الدخول إلى GitHub</string>
     <string name="rt_gh_http_error">أعاد GitHub رمز HTTP %1$d</string>
+    <string name="rt_gl_http_error">أعاد GitLab رمز HTTP %1$d</string>
     <string name="rt_update_download_failed">فشل تنزيل التحديث (HTTP %1$d)</string>
     <string name="rt_update_checksum_failed">فشل ملف APK الذي تم تنزيله في التحقق من SHA-256</string>
     <string name="rt_update_prepare_failed">تعذّر تجهيز التحديث الذي تم تنزيله</string>

@@ -132,6 +132,7 @@
     <string name="rt_gh_code_expired">Ο κωδικός σύνδεσης GitHub έληξε. Δοκιμάστε ξανά.</string>
     <string name="rt_gh_sign_in_failed">Η σύνδεση στο GitHub απέτυχε</string>
     <string name="rt_gh_http_error">Το GitHub επέστρεψε HTTP %1$d</string>
+    <string name="rt_gl_http_error">Το GitLab επέστρεψε HTTP %1$d</string>
     <string name="rt_update_download_failed">Η λήψη της ενημέρωσης απέτυχε (HTTP %1$d)</string>
     <string name="rt_update_checksum_failed">Το APK που λήφθηκε απέτυχε στην επαλήθευση SHA-256</string>
     <string name="rt_update_prepare_failed">Δεν ήταν δυνατή η προετοιμασία της ενημέρωσης που λήφθηκε</string>

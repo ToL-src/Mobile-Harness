@@ -67,6 +67,15 @@
     <string name="ws_https_git_url">HTTPS Git URL</string>
     <string name="ws_clone_project">प्रोजेक्ट क्लोन करें</string>
     <string name="ws_github_signin_desc">सार्वजनिक और निजी रिपॉज़िटरी ब्राउज़ करने के लिए GitHub के आधिकारिक CLI से साइन इन करें।</string>
+    <string name="ws_gitlab_connect_desc">निजी GitLab प्रोजेक्ट ब्राउज़ करने के लिए Personal Access Token से कनेक्ट करें। स्व-होस्टेड होस्ट समर्थित हैं।</string>
+    <string name="ws_gitlab_host">GitLab होस्ट</string>
+    <string name="ws_gitlab_token">Personal Access Token</string>
+    <string name="ws_gitlab_token_help">स्कोप: read_api और read_repository</string>
+    <string name="ws_gitlab_connect">GitLab कनेक्ट करें</string>
+    <string name="ws_gitlab_connecting">GitLab से कनेक्ट हो रहा है…</string>
+    <string name="ws_gitlab_select_repo">एक प्रोजेक्ट चुनें</string>
+    <string name="ws_gitlab_refresh_repos">प्रोजेक्ट रीफ़्रेश करें</string>
+    <string name="ws_gitlab_search_repos">प्रोजेक्ट खोजें</string>
     <string name="ws_github_signin">GitHub से साइन इन करें</string>
     <string name="ws_github_starting">GitHub साइन-इन शुरू हो रहा है…</string>
     <string name="ws_github_enter_code">अपने ब्राउज़र में खुले GitHub पेज में यह एक-बार का कोड दर्ज करें।</string>

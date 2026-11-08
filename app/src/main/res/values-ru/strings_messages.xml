@@ -85,6 +85,15 @@
     <string name="vm_import_too_large">Импортированный проект слишком велик для доступного места</string>
     <string name="vm_zip_preserve_failed">Не удалось сохранить выбранный ZIP</string>
     <string name="vm_github_connect_again">Подключите GitHub снова</string>
+    <string name="vm_gitlab_connect_again">Подключите GitLab снова</string>
+    <string name="vm_gitlab_token_required">Введите Personal Access Token GitLab</string>
+    <string name="vm_gitlab_connecting">Подключение к GitLab…</string>
+    <string name="vm_gitlab_connected_as">Подключено как @%1$s на %2$s</string>
+    <string name="vm_gitlab_account_unknown">GitLab подключён, но аккаунт определить не удалось</string>
+    <string name="vm_gitlab_connect_failed">Не удалось подключить GitLab</string>
+    <string name="vm_gitlab_repos_failed">Не удалось загрузить проекты GitLab</string>
+    <string name="vm_gitlab_signing_out">Выход из GitLab…</string>
+    <string name="vm_gitlab_host_invalid">Укажите корректный HTTPS-хост GitLab</string>
     <string name="vm_invalid_git_url">Введите действительный публичный HTTPS-адрес Git</string>
     <string name="vm_connecting_git">Подключение к репозиторию Git…</string>
     <string name="vm_cloning_named">Клонирование %1$s…</string>

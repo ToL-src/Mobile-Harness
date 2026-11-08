@@ -85,6 +85,15 @@
     <string name="vm_import_too_large">The imported project is too large for available storage</string>
     <string name="vm_zip_preserve_failed">The selected ZIP could not be preserved</string>
     <string name="vm_github_connect_again">Connect GitHub again</string>
+    <string name="vm_gitlab_connect_again">Connect GitLab again</string>
+    <string name="vm_gitlab_token_required">Enter a GitLab Personal Access Token</string>
+    <string name="vm_gitlab_connecting">Connecting to GitLab…</string>
+    <string name="vm_gitlab_connected_as">Connected as @%1$s on %2$s</string>
+    <string name="vm_gitlab_account_unknown">GitLab connected, but the account could not be identified</string>
+    <string name="vm_gitlab_connect_failed">GitLab connection failed</string>
+    <string name="vm_gitlab_repos_failed">Could not load GitLab projects</string>
+    <string name="vm_gitlab_signing_out">Signing out of GitLab…</string>
+    <string name="vm_gitlab_host_invalid">Enter a valid HTTPS GitLab host</string>
     <string name="vm_invalid_git_url">Enter a valid public HTTPS Git URL</string>
     <string name="vm_connecting_git">Connecting to Git repository…</string>
     <string name="vm_cloning_named">Cloning %1$s…</string>

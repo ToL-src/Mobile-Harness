@@ -75,6 +75,15 @@
     <string name="ws_github_select_repo">Select a repository</string>
     <string name="ws_github_refresh_repos">Refresh repositories</string>
     <string name="ws_github_search_repos">Search repositories</string>
+    <string name="ws_gitlab_connect_desc">Connect with a Personal Access Token to browse private GitLab projects. Self-hosted hosts are supported.</string>
+    <string name="ws_gitlab_host">GitLab host</string>
+    <string name="ws_gitlab_token">Personal Access Token</string>
+    <string name="ws_gitlab_token_help">Scopes: read_api and read_repository</string>
+    <string name="ws_gitlab_connect">Connect GitLab</string>
+    <string name="ws_gitlab_connecting">Connecting to GitLab…</string>
+    <string name="ws_gitlab_select_repo">Select a project</string>
+    <string name="ws_gitlab_refresh_repos">Refresh projects</string>
+    <string name="ws_gitlab_search_repos">Search projects</string>
     <string name="ws_repo_private">Private</string>
     <string name="ws_repo_public">Public</string>
     <string name="ws_disconnect">Disconnect</string>

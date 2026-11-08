@@ -67,6 +67,15 @@
     <string name="ws_https_git_url">HTTPS Git 网址</string>
     <string name="ws_clone_project">克隆项目</string>
     <string name="ws_github_signin_desc">使用 GitHub 官方 CLI 登录，以浏览公开和私有仓库。</string>
+    <string name="ws_gitlab_connect_desc">使用 Personal Access Token 连接以浏览私有 GitLab 项目。支持自建主机。</string>
+    <string name="ws_gitlab_host">GitLab 主机</string>
+    <string name="ws_gitlab_token">Personal Access Token</string>
+    <string name="ws_gitlab_token_help">权限范围：read_api 和 read_repository</string>
+    <string name="ws_gitlab_connect">连接 GitLab</string>
+    <string name="ws_gitlab_connecting">正在连接 GitLab…</string>
+    <string name="ws_gitlab_select_repo">选择项目</string>
+    <string name="ws_gitlab_refresh_repos">刷新项目</string>
+    <string name="ws_gitlab_search_repos">搜索项目</string>
     <string name="ws_github_signin">使用 GitHub 登录</string>
     <string name="ws_github_starting">正在启动 GitHub 登录…</string>
     <string name="ws_github_enter_code">请在浏览器中打开的 GitHub 页面输入此一次性代码。</string>

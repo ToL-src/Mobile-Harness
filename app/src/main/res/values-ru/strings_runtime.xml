@@ -132,6 +132,7 @@
     <string name="rt_gh_code_expired">Код входа GitHub истёк. Попробуйте снова.</string>
     <string name="rt_gh_sign_in_failed">Не удалось войти в GitHub</string>
     <string name="rt_gh_http_error">GitHub вернул HTTP %1$d</string>
+    <string name="rt_gl_http_error">GitLab вернул HTTP %1$d</string>
     <string name="rt_update_download_failed">Не удалось загрузить обновление (HTTP %1$d)</string>
     <string name="rt_update_checksum_failed">Загруженный APK не прошёл проверку SHA-256</string>
     <string name="rt_update_prepare_failed">Не удалось подготовить загруженное обновление</string>

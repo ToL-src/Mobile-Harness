@@ -132,6 +132,7 @@
     <string name="rt_gh_code_expired">The GitHub sign-in code expired. Try again.</string>
     <string name="rt_gh_sign_in_failed">GitHub sign-in failed</string>
     <string name="rt_gh_http_error">GitHub returned HTTP %1$d</string>
+    <string name="rt_gl_http_error">GitLab returned HTTP %1$d</string>
     <string name="rt_update_download_failed">Update download failed (HTTP %1$d)</string>
     <string name="rt_update_checksum_failed">Downloaded APK failed its SHA-256 verification</string>
     <string name="rt_update_prepare_failed">Could not prepare the downloaded update</string>

@@ -85,6 +85,15 @@
     <string name="vm_import_too_large">导入的项目超出可用存储空间</string>
     <string name="vm_zip_preserve_failed">无法保留所选的 ZIP</string>
     <string name="vm_github_connect_again">请重新连接 GitHub</string>
+    <string name="vm_gitlab_connect_again">请重新连接 GitLab</string>
+    <string name="vm_gitlab_token_required">请输入 GitLab Personal Access Token</string>
+    <string name="vm_gitlab_connecting">正在连接 GitLab…</string>
+    <string name="vm_gitlab_connected_as">已作为 @%1$s 连接到 %2$s</string>
+    <string name="vm_gitlab_account_unknown">已连接 GitLab，但无法识别账户</string>
+    <string name="vm_gitlab_connect_failed">GitLab 连接失败</string>
+    <string name="vm_gitlab_repos_failed">无法加载 GitLab 项目</string>
+    <string name="vm_gitlab_signing_out">正在退出 GitLab…</string>
+    <string name="vm_gitlab_host_invalid">请输入有效的 HTTPS GitLab 主机</string>
     <string name="vm_invalid_git_url">请输入有效的公开 HTTPS Git 链接</string>
     <string name="vm_connecting_git">正在连接 Git 仓库…</string>
     <string name="vm_cloning_named">正在克隆 %1$s…</string>

@@ -50,6 +50,8 @@ import com.jarves.mh.network.ConnectionValidation
 import com.jarves.mh.network.ModelDiscoveryResult
 import com.jarves.mh.network.ProviderApiClient
 import com.jarves.mh.network.GitHubRepository
+import com.jarves.mh.network.GitLabClient
+import com.jarves.mh.network.GitLabRepository
 import com.jarves.mh.runtime.ClaudeRuntimeBridge
 import com.jarves.mh.runtime.DshRuntimeBridge
 import com.jarves.mh.runtime.ProviderRuntimeErrorDetector
@@ -129,6 +131,7 @@ enum class StartupStage { CHECKING, SETUP_REQUIRED, INSTALLING, MODEL_SETUP, INI
 enum class ApiPingStatus { IDLE, PINGING, OK, FAILED }
 enum class AppUpdateStatus { AVAILABLE, PERMISSION_REQUIRED, DOWNLOADING, INSTALLING, ERROR }
 enum class GitHubAuthStatus { DISCONNECTED, STARTING, AWAITING_USER, CONNECTED, ERROR }
+enum class GitLabAuthStatus { DISCONNECTED, CONNECTING, CONNECTED, ERROR }
 
 data class ExportSelection(
     val defaultIncluded: Boolean = true,
@@ -307,6 +310,12 @@ data class AppUiState(
     val githubMessage: String? = null,
     val githubRepositories: List<GitHubRepository> = emptyList(),
     val githubRepositoriesLoading: Boolean = false,
+    val gitlabAuthStatus: GitLabAuthStatus = GitLabAuthStatus.DISCONNECTED,
+    val gitlabHost: String? = null,
+    val gitlabLogin: String? = null,
+    val gitlabMessage: String? = null,
+    val gitlabRepositories: List<GitLabRepository> = emptyList(),
+    val gitlabRepositoriesLoading: Boolean = false,
     val activeProject: Project? = null,
     val workspaceVisible: Boolean = false,
     val readOnlyProject: Project? = null,
@@ -455,6 +464,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     @Volatile private var setupCompletionHandled: Boolean = false
     @Volatile private var githubAuthProcess: Process? = null
     private var githubAuthJob: kotlinx.coroutines.Job? = null
+    private var gitlabAuthJob: kotlinx.coroutines.Job? = null
+    @Volatile private var gitlabSessionEpoch: Int = 0
     @Volatile private var lastOpenedAntigravityAuthUrl: String? = null
     private var activeRuntimeRequest: RuntimeRetryRequest? = null
     private val pendingFollowUps = java.util.ArrayDeque<QueuedFollowUp>()
@@ -503,6 +514,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             projects = preferences.loadProjects(),
             githubAuthStatus = GitHubAuthStatus.DISCONNECTED,
             githubLogin = preferences.githubLogin.takeIf(String::isNotBlank),
+            // Mirror GitHub: prefs may remember login, but status stays disconnected until refresh verifies.
+            gitlabAuthStatus = GitLabAuthStatus.DISCONNECTED,
+            gitlabHost = preferences.gitlabHost.takeIf(String::isNotBlank) ?: GitLabClient.DEFAULT_HOST,
+            gitlabLogin = preferences.gitlabLogin.takeIf(String::isNotBlank),
             selectedDevStacks = preferences.selectedDevStacks.mapNotNull { name ->
                 runCatching { DevStack.valueOf(name) }.getOrNull()
             }.toSet() + DevStack.WEB,
@@ -573,6 +588,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         // the retired custom OAuth implementation and discover the real CLI status.
         vault.remove(LEGACY_GITHUB_TOKEN_KEY)
         viewModelScope.launch { refreshGitHubConnection() }
+        viewModelScope.launch { refreshGitLabConnection() }
         RuntimeSetupController.restore(application)
         viewModelScope.launch(Dispatchers.IO) {
             for (pending in transcriptWrites) {
@@ -3438,7 +3454,42 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         cloneGitRepository(repository.cloneUrl, repository.fullName, repository.defaultBranch, useGitHubCli = true)
     }
 
-    private fun cloneGitRepository(url: String, repositoryName: String?, branch: String?, useGitHubCli: Boolean) {
+    fun cloneGitLabRepository(repository: GitLabRepository) {
+        if (_state.value.gitlabAuthStatus != GitLabAuthStatus.CONNECTED) {
+            _state.update { it.copy(gitlabAuthStatus = GitLabAuthStatus.DISCONNECTED, gitlabMessage = str(R.string.vm_gitlab_connect_again)) }
+            return
+        }
+        val token = vault.get(GITLAB_VAULT_KEY)
+        if (token.isNullOrBlank()) {
+            _state.update {
+                it.copy(
+                    gitlabAuthStatus = GitLabAuthStatus.DISCONNECTED,
+                    gitlabLogin = null,
+                    gitlabMessage = str(R.string.vm_gitlab_connect_again),
+                )
+            }
+            return
+        }
+        cloneGitRepository(
+            url = repository.httpUrlToRepo,
+            repositoryName = repository.pathWithNamespace,
+            branch = repository.defaultBranch,
+            useGitHubCli = false,
+            sourceLabel = "GitLab",
+            askPass = GitAskPassCredentials(username = "oauth2", password = token),
+        )
+    }
+
+    private data class GitAskPassCredentials(val username: String, val password: String)
+
+    private fun cloneGitRepository(
+        url: String,
+        repositoryName: String?,
+        branch: String?,
+        useGitHubCli: Boolean,
+        sourceLabel: String = "GitHub",
+        askPass: GitAskPassCredentials? = null,
+    ) {
         if (_state.value.gitCloneRunning || _state.value.projectImporting || _state.value.isRunning || _state.value.projectTerminalRunning || _state.value.androidBuildRunning) return
         val normalized = runCatching { validateGitUrl(url) }.getOrElse { error ->
             _state.update { it.copy(toastMessage = error.message ?: str(R.string.vm_invalid_git_url)) }
@@ -3452,6 +3503,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     val projectId = UUID.randomUUID().toString()
                     val workspace = File(getApplication<Application>().filesDir, "workspaces/$projectId").apply { mkdirs() }
                     val output = File(getApplication<Application>().cacheDir, "git-clone-${System.nanoTime()}.log")
+                    val askPassFile = if (askPass != null) {
+                        File(getApplication<Application>().filesDir, "runtime-bridge/git-askpass-${System.nanoTime()}.sh")
+                    } else {
+                        null
+                    }
                     try {
                         val environment = mutableMapOf(
                             "GIT_TERMINAL_PROMPT" to "0",
@@ -3459,8 +3515,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             "GH_PROMPT_DISABLED" to "1",
                             "GH_NO_UPDATE_NOTIFIER" to "1",
                         )
+                        if (askPass != null && askPassFile != null) {
+                            askPassFile.parentFile?.mkdirs()
+                            // Keep the secret out of the proot process environ (/proc is bind-mounted).
+                            writeGitAskPassScript(askPassFile, askPass)
+                            val guestAskPass = "/pocket-bridge/${askPassFile.name}"
+                            environment["GIT_ASKPASS"] = guestAskPass
+                            environment["SSH_ASKPASS"] = guestAskPass
+                            environment["SSH_ASKPASS_REQUIRE"] = "never"
+                        }
                         val installed = installer.installedRuntime()
-                        val command = if (useGitHubCli && repositoryName != null) {
+                        val gitCommand = if (useGitHubCli && repositoryName != null) {
                             buildList {
                                 addAll(listOf(RuntimeInstaller.GITHUB_CLI_GUEST_PATH, "repo", "clone", repositoryName, ".", "--", "--progress", "--single-branch"))
                                 branch?.takeIf(String::isNotBlank)?.let { addAll(listOf("--branch", it)) }
@@ -3472,6 +3537,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                                 add(normalized)
                                 add(".")
                             }
+                        }
+                        // Android bind mounts can ignore File.setExecutable; chmod in-guest before git runs askpass.
+                        val command = if (askPass != null && askPassFile != null) {
+                            val guestAskPass = "/pocket-bridge/${askPassFile.name}"
+                            listOf("sh", "-c", "chmod 700 \"$guestAskPass\" && exec \"\$@\"", "git-askpass-wrap") + gitCommand
+                        } else {
+                            gitCommand
                         }
                         _state.update { it.copy(gitCloneMessage = str(R.string.vm_cloning_named, repositoryName ?: normalized.substringAfterLast('/').removeSuffix(".git"))) }
                         val process = installer.process(
@@ -3490,7 +3562,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         Project(
                             id = projectId,
                             name = identity.displayName,
-                            description = repositoryName?.let { "GitHub · $it" } ?: "Imported Git repository",
+                            description = repositoryName?.let { "$sourceLabel · $it" } ?: "Imported Git repository",
                             language = metadata.second,
                             slug = identity.slug,
                             kind = ProjectKind.QUICK_PROJECT,
@@ -3499,6 +3571,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         workspace.deleteRecursively()
                         throw error
                     } finally {
+                        askPassFile?.delete()
                         output.delete()
                     }
                 }
@@ -3521,6 +3594,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
+
+    private fun writeGitAskPassScript(file: File, credentials: GitAskPassCredentials) {
+        // Ephemeral askpass owns the secret; deleted in finally. Avoids GIT_PASSWORD in /proc/<pid>/environ.
+        file.writeText(
+            """
+            #!/bin/sh
+            case "${'$'}1" in
+              *sername*|*Username*) printf '%s\n' ${shellSingleQuoted(credentials.username)} ;;
+              *) printf '%s\n' ${shellSingleQuoted(credentials.password)} ;;
+            esac
+            """.trimIndent() + "\n",
+        )
+        file.setExecutable(true, false)
+    }
+
+    private fun shellSingleQuoted(value: String): String =
+        "'" + value.replace("'", "'\\''") + "'"
 
     private fun validateGitUrl(value: String): String {
         val clean = value.trim()
@@ -3709,6 +3799,215 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }.onFailure { error ->
                 _state.update { it.copy(githubAuthStatus = GitHubAuthStatus.ERROR, githubMessage = error.message ?: str(R.string.vm_sign_out_failed)) }
+            }
+        }
+    }
+
+    fun connectGitLab(hostInput: String, tokenInput: String) {
+        if (_state.value.gitlabAuthStatus == GitLabAuthStatus.CONNECTING) return
+        val token = tokenInput.trim()
+        if (token.isBlank()) {
+            _state.update { it.copy(gitlabAuthStatus = GitLabAuthStatus.ERROR, gitlabMessage = str(R.string.vm_gitlab_token_required)) }
+            return
+        }
+        val host = runCatching {
+            GitLabClient.normalizeHost(hostInput.ifBlank { GitLabClient.DEFAULT_HOST })
+        }.getOrElse { error ->
+            _state.update {
+                it.copy(
+                    gitlabAuthStatus = GitLabAuthStatus.ERROR,
+                    gitlabMessage = error.message?.take(240) ?: str(R.string.vm_gitlab_host_invalid),
+                )
+            }
+            return
+        }
+        val epoch = gitlabSessionEpoch
+        gitlabAuthJob?.cancel()
+        _state.update {
+            it.copy(
+                gitlabAuthStatus = GitLabAuthStatus.CONNECTING,
+                gitlabHost = host,
+                gitlabMessage = str(R.string.vm_gitlab_connecting),
+            )
+        }
+        gitlabAuthJob = viewModelScope.launch {
+            try {
+                // Persist after account() only — repo listing is a follow-up so a slow page load cannot drop a valid PAT.
+                val account = withContext(Dispatchers.IO) {
+                    GitLabClient(getApplication()).account(host, token)
+                }
+                if (epoch != gitlabSessionEpoch) return@launch
+                vault.put(GITLAB_VAULT_KEY, token)
+                preferences.gitlabHost = host
+                preferences.gitlabLogin = account.login
+                _state.update {
+                    it.copy(
+                        gitlabAuthStatus = GitLabAuthStatus.CONNECTED,
+                        gitlabHost = host,
+                        gitlabLogin = account.login,
+                        gitlabMessage = str(R.string.vm_gitlab_connected_as, account.login, host),
+                    )
+                }
+                refreshGitLabRepositories()
+            } catch (error: kotlinx.coroutines.CancellationException) {
+                if (epoch == gitlabSessionEpoch && _state.value.gitlabAuthStatus == GitLabAuthStatus.CONNECTING) {
+                    _state.update {
+                        it.copy(
+                            gitlabAuthStatus = GitLabAuthStatus.DISCONNECTED,
+                            gitlabMessage = null,
+                        )
+                    }
+                }
+                throw error
+            } catch (error: Throwable) {
+                if (epoch != gitlabSessionEpoch) return@launch
+                _state.update {
+                    it.copy(
+                        gitlabAuthStatus = GitLabAuthStatus.ERROR,
+                        gitlabMessage = error.message?.take(240) ?: str(R.string.vm_gitlab_connect_failed),
+                    )
+                }
+            } finally {
+                if (epoch == gitlabSessionEpoch) gitlabAuthJob = null
+            }
+        }
+    }
+
+    fun refreshGitLabRepositories() {
+        if (_state.value.gitlabAuthStatus != GitLabAuthStatus.CONNECTED) return
+        if (_state.value.gitlabRepositoriesLoading) return
+        val host = _state.value.gitlabHost ?: preferences.gitlabHost.ifBlank { GitLabClient.DEFAULT_HOST }
+        val token = vault.get(GITLAB_VAULT_KEY)
+        if (token.isNullOrBlank()) {
+            preferences.gitlabLogin = ""
+            _state.update {
+                it.copy(
+                    gitlabAuthStatus = GitLabAuthStatus.DISCONNECTED,
+                    gitlabLogin = null,
+                    gitlabRepositories = emptyList(),
+                    gitlabMessage = str(R.string.vm_gitlab_connect_again),
+                )
+            }
+            return
+        }
+        val epoch = gitlabSessionEpoch
+        _state.update { it.copy(gitlabRepositoriesLoading = true, gitlabMessage = str(R.string.vm_loading_repositories)) }
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching { GitLabClient(getApplication()).repositories(host, token) }
+            }
+            if (epoch != gitlabSessionEpoch) return@launch
+            result.onSuccess { repositories ->
+                _state.update {
+                    it.copy(
+                        gitlabRepositories = repositories,
+                        gitlabRepositoriesLoading = false,
+                        gitlabMessage = plural(R.plurals.vm_repositories_available, repositories.size, repositories.size),
+                    )
+                }
+            }.onFailure { error ->
+                _state.update {
+                    it.copy(
+                        gitlabRepositoriesLoading = false,
+                        gitlabMessage = error.message ?: str(R.string.vm_gitlab_repos_failed),
+                    )
+                }
+            }
+        }
+    }
+
+    fun disconnectGitLab() {
+        gitlabSessionEpoch++
+        gitlabAuthJob?.cancel()
+        gitlabAuthJob = null
+        // Synchronous clear — avoid CONNECTING trap that blocks dismiss/cancel in the dialog.
+        vault.remove(GITLAB_VAULT_KEY)
+        preferences.gitlabLogin = ""
+        _state.update {
+            it.copy(
+                gitlabAuthStatus = GitLabAuthStatus.DISCONNECTED,
+                gitlabLogin = null,
+                gitlabRepositories = emptyList(),
+                gitlabRepositoriesLoading = false,
+                gitlabMessage = str(R.string.vm_signed_out),
+            )
+        }
+    }
+
+    private suspend fun refreshGitLabConnection() = withContext(Dispatchers.IO) {
+        val epoch = gitlabSessionEpoch
+        val token = vault.get(GITLAB_VAULT_KEY)
+        val host = preferences.gitlabHost.ifBlank { GitLabClient.DEFAULT_HOST }
+        val savedLogin = preferences.gitlabLogin.takeIf(String::isNotBlank)
+        if (token.isNullOrBlank()) {
+            if (savedLogin != null) preferences.gitlabLogin = ""
+            if (epoch != gitlabSessionEpoch) return@withContext
+            _state.update {
+                it.copy(
+                    gitlabAuthStatus = GitLabAuthStatus.DISCONNECTED,
+                    gitlabLogin = null,
+                    gitlabHost = host,
+                )
+            }
+            return@withContext
+        }
+        if (savedLogin == null) {
+            // Token without login: verify once, then persist identity.
+            val account = runCatching { GitLabClient(getApplication()).account(host, token) }.getOrNull()
+            if (epoch != gitlabSessionEpoch || vault.get(GITLAB_VAULT_KEY).isNullOrBlank()) return@withContext
+            if (account == null) {
+                _state.update { it.copy(gitlabAuthStatus = GitLabAuthStatus.DISCONNECTED, gitlabHost = host, gitlabLogin = null) }
+                return@withContext
+            }
+            preferences.gitlabLogin = account.login
+            preferences.gitlabHost = GitLabClient.normalizeHost(host)
+            _state.update {
+                it.copy(
+                    gitlabAuthStatus = GitLabAuthStatus.CONNECTED,
+                    gitlabHost = GitLabClient.normalizeHost(host),
+                    gitlabLogin = account.login,
+                    gitlabMessage = str(R.string.vm_gitlab_connected_as, account.login, GitLabClient.normalizeHost(host)),
+                )
+            }
+            return@withContext
+        }
+        val accountResult = runCatching { GitLabClient(getApplication()).account(host, token) }
+        if (epoch != gitlabSessionEpoch || vault.get(GITLAB_VAULT_KEY).isNullOrBlank()) return@withContext
+        accountResult.onSuccess { account ->
+            preferences.gitlabLogin = account.login
+            preferences.gitlabHost = GitLabClient.normalizeHost(host)
+            _state.update {
+                it.copy(
+                    gitlabAuthStatus = GitLabAuthStatus.CONNECTED,
+                    gitlabHost = GitLabClient.normalizeHost(host),
+                    gitlabLogin = account.login,
+                    gitlabMessage = str(R.string.vm_gitlab_connected_as, account.login, GitLabClient.normalizeHost(host)),
+                )
+            }
+        }.onFailure { error ->
+            val unauthorized = error.message?.contains("401") == true ||
+                error.message?.contains("Unauthorized", ignoreCase = true) == true
+            if (unauthorized) {
+                preferences.gitlabLogin = ""
+                vault.remove(GITLAB_VAULT_KEY)
+                _state.update {
+                    it.copy(
+                        gitlabAuthStatus = GitLabAuthStatus.DISCONNECTED,
+                        gitlabLogin = null,
+                        gitlabHost = host,
+                        gitlabMessage = error.message?.take(240),
+                    )
+                }
+            } else {
+                // Transient network/DNS/5xx: keep the saved session usable offline.
+                _state.update {
+                    it.copy(
+                        gitlabAuthStatus = GitLabAuthStatus.CONNECTED,
+                        gitlabHost = GitLabClient.normalizeHost(host),
+                        gitlabLogin = savedLogin,
+                        gitlabMessage = str(R.string.vm_gitlab_connected_as, savedLogin, GitLabClient.normalizeHost(host)),
+                    )
+                }
             }
         }
     }
@@ -5438,6 +5737,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         private const val MAX_IMPORTED_PROJECT_BYTES = 8L * 1024L * 1024L * 1024L
         private const val MAX_IMPORTED_ZIP_ENTRIES = 100_000
         private const val LEGACY_GITHUB_TOKEN_KEY = "GITHUB_APP"
+        private const val GITLAB_VAULT_KEY = "gitlab"
         private const val GITHUB_DEVICE_URL = "https://github.com/login/device"
         private val GITHUB_DEVICE_CODE = Regex("\\b[A-Z0-9]{4}-[A-Z0-9]{4}\\b")
         private const val TEST_PROVIDER_DEFAULTS_VERSION = 1

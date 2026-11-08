@@ -132,6 +132,7 @@
     <string name="rt_gh_code_expired">GitHub 登录码已过期。请重试。</string>
     <string name="rt_gh_sign_in_failed">GitHub 登录失败</string>
     <string name="rt_gh_http_error">GitHub 返回了 HTTP %1$d</string>
+    <string name="rt_gl_http_error">GitLab 返回了 HTTP %1$d</string>
     <string name="rt_update_download_failed">更新下载失败（HTTP %1$d）</string>
     <string name="rt_update_checksum_failed">已下载的 APK 未通过 SHA-256 校验</string>
     <string name="rt_update_prepare_failed">无法准备已下载的更新</string>

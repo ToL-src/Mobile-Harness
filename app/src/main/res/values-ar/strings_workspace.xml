@@ -67,6 +67,15 @@
     <string name="ws_https_git_url">رابط Git عبر HTTPS</string>
     <string name="ws_clone_project">استنساخ المشروع</string>
     <string name="ws_github_signin_desc">سجّل الدخول باستخدام CLI الرسمية من GitHub لتصفح المستودعات العامة والخاصة.</string>
+    <string name="ws_gitlab_connect_desc">اتصل باستخدام Personal Access Token لتصفح مشاريع GitLab الخاصة. الخوادم المستضافة ذاتيًا مدعومة.</string>
+    <string name="ws_gitlab_host">مضيف GitLab</string>
+    <string name="ws_gitlab_token">Personal Access Token</string>
+    <string name="ws_gitlab_token_help">الصلاحيات: read_api و read_repository</string>
+    <string name="ws_gitlab_connect">الاتصال بـ GitLab</string>
+    <string name="ws_gitlab_connecting">جارٍ الاتصال بـ GitLab…</string>
+    <string name="ws_gitlab_select_repo">اختر مشروعًا</string>
+    <string name="ws_gitlab_refresh_repos">تحديث المشاريع</string>
+    <string name="ws_gitlab_search_repos">البحث في المشاريع</string>
     <string name="ws_github_signin">تسجيل الدخول باستخدام GitHub</string>
     <string name="ws_github_starting">جارٍ بدء تسجيل الدخول إلى GitHub…</string>
     <string name="ws_github_enter_code">أدخل هذا الرمز لمرة واحدة في صفحة GitHub المفتوحة في متصفحك.</string>

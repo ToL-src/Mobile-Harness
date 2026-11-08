@@ -132,6 +132,7 @@
     <string name="rt_gh_code_expired">GitHub साइन-इन कोड की समय-सीमा समाप्त हो गई। फिर कोशिश करें।</string>
     <string name="rt_gh_sign_in_failed">GitHub साइन-इन विफल रहा</string>
     <string name="rt_gh_http_error">GitHub ने HTTP %1$d लौटाया</string>
+    <string name="rt_gl_http_error">GitLab ने HTTP %1$d लौटाया</string>
     <string name="rt_update_download_failed">अपडेट डाउनलोड विफल रहा (HTTP %1$d)</string>
     <string name="rt_update_checksum_failed">डाउनलोड किया गया APK SHA-256 सत्यापन में विफल रहा</string>
     <string name="rt_update_prepare_failed">डाउनलोड किया गया अपडेट तैयार नहीं हो सका</string>

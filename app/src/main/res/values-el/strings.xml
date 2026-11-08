@@ -271,7 +271,7 @@
     <string name="projects_new_project">Νέο έργο</string>
     <string name="projects_bring_existing">Φέρτε ένα υπάρχον έργο</string>
     <string name="projects_import_expanded">Εισαγωγή αρχείων ή κλωνοποίηση με πλήρες ιστορικό Git</string>
-    <string name="projects_import_sources">Αρχείο ZIP, αποθετήριο Git ή GitHub</string>
+    <string name="projects_import_sources">Αρχείο ZIP, αποθετήριο Git, GitHub ή GitLab</string>
     <string name="projects_your_projects">Τα έργα σας</string>
     <string name="projects_empty_title">Δεν υπάρχουν έργα ακόμα</string>
     <string name="projects_empty_desc">Δημιουργήστε ένα έργο με όνομα ή ξεκινήστε αμέσως με ένα Γρήγορο έργο.</string>
@@ -304,8 +304,13 @@
     <string name="projects_git_url">URL Git</string>
     <string name="projects_github_account">GitHub · @%1$s</string>
     <string name="projects_connect_github">Σύνδεση GitHub</string>
+    <string name="projects_gitlab_account">GitLab · @%1$s</string>
+    <string name="projects_connect_gitlab">Σύνδεση GitLab</string>
+    <string name="projects_gitlab_host_account">GitLab · %1$s · @%2$s</string>
     <string name="projects_browse_repositories">Περιήγηση σε δημόσια και ιδιωτικά αποθετήρια</string>
     <string name="projects_sign_in_repositories">Συνδεθείτε για πρόσβαση στα αποθετήριά σας</string>
+    <string name="projects_browse_gitlab">Περιήγηση σε ιδιωτικά έργα GitLab</string>
+    <string name="projects_connect_gitlab_desc">PAT για gitlab.com ή αυτοφιλοξενούμενο</string>
     <string name="agent_not_installed">Το %1$s δεν είναι εγκατεστημένο</string>
     <string name="agent_install_description">Εγκαταστήστε το πακέτο agent %1$s για να το χρησιμοποιήσετε με τα υπάρχοντα έργα σας.</string>
     <string name="agent_install_action">Εγκατάσταση %1$s</string>

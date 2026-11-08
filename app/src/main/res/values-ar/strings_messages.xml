@@ -85,6 +85,15 @@
     <string name="vm_import_too_large">المشروع المستورد أكبر من مساحة التخزين المتاحة</string>
     <string name="vm_zip_preserve_failed">تعذّر الاحتفاظ بملف ZIP المحدد</string>
     <string name="vm_github_connect_again">اتصل بـ GitHub مرة أخرى</string>
+    <string name="vm_gitlab_connect_again">اتصل بـ GitLab مرة أخرى</string>
+    <string name="vm_gitlab_token_required">أدخل Personal Access Token الخاص بـ GitLab</string>
+    <string name="vm_gitlab_connecting">جارٍ الاتصال بـ GitLab…</string>
+    <string name="vm_gitlab_connected_as">متصل باسم @%1$s على %2$s</string>
+    <string name="vm_gitlab_account_unknown">تم الاتصال بـ GitLab، لكن تعذّر تحديد الحساب</string>
+    <string name="vm_gitlab_connect_failed">فشل الاتصال بـ GitLab</string>
+    <string name="vm_gitlab_repos_failed">تعذّر تحميل مشاريع GitLab</string>
+    <string name="vm_gitlab_signing_out">جارٍ تسجيل الخروج من GitLab…</string>
+    <string name="vm_gitlab_host_invalid">أدخل مضيف GitLab صالحًا عبر HTTPS</string>
     <string name="vm_invalid_git_url">أدخل رابط Git عاماً صالحاً عبر HTTPS</string>
     <string name="vm_connecting_git">جارٍ الاتصال بمستودع Git…</string>
     <string name="vm_cloning_named">جارٍ استنساخ %1$s…</string>
