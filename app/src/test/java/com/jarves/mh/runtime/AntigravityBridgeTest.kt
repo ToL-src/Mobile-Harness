@@ -182,6 +182,22 @@ class AntigravityBridgeTest {
     }
 
     @Test
+    fun `rate limit is not reported as out of credits`() {
+        assertEquals(
+            "Antigravity was rate-limited. Wait a moment and try again.",
+            antigravityFriendlyError("HTTP 429 rate limit exceeded"),
+        )
+        assertEquals(
+            "Your Antigravity account is out of credits. Check the account plan or wait for credits to reset.",
+            antigravityFriendlyError("out of credits for this quota"),
+        )
+        assertEquals(
+            "Your Antigravity account is out of credits. Check the account plan or wait for credits to reset.",
+            antigravityFriendlyError("exceeded quota for generated content"),
+        )
+    }
+
+    @Test
     fun `new headless conversation creates an official project`() {
         val command = antigravityCommand("", "high", null)
         assertTrue("--new-project" in command)

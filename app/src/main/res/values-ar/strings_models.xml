@@ -32,6 +32,8 @@
     <string name="md_chat_title_attachments">مراجعة الملفات المرفقة</string>
     <string name="md_reason_user_not_found">لم يتم العثور على المستخدم. تحقق من مفتاح API وحساب المزود.</string>
     <string name="md_reason_key_rejected">رفض المزود مفتاح API المحفوظ.</string>
+    <string name="md_reason_rate_limited">قيّد المزود معدل الطلبات. انتظر قليلاً ثم أعد المحاولة.</string>
+    <string name="md_reason_request_denied">رفض المزود هذا الطلب. تحقق من مفتاح API وصلاحيات الحساب.</string>
     <string name="md_reason_verification_failed">فشل التحقق من بيئة التشغيل. لم يُنفَّذ أي شيء غير موثّق.</string>
     <string name="md_reason_claude_could_not_start">تعذّر تشغيل بيئة Claude Code الفعلية.</string>
     <string name="md_reason_claude_reported_error">أبلغ Claude Code عن خطأ</string>
@@ -39,6 +41,7 @@
     <string name="md_reason_antigravity_exit_code">خرج Antigravity بالرمز %1$d</string>
     <string name="md_reason_antigravity_signin">يحتاج Antigravity إلى تسجيل الدخول عبر Google. افتح الإعدادات ← وكيل البرمجة.</string>
     <string name="md_reason_antigravity_no_credits">نفدت أرصدة حساب Antigravity. تحقق من خطة الحساب أو انتظر إعادة تعيين الأرصدة.</string>
+    <string name="md_reason_antigravity_rate_limited">قيّد Antigravity معدل الطلبات. انتظر قليلاً ثم أعد المحاولة.</string>
     <string name="md_reason_antigravity_time_limit">بلغ Antigravity حد المهمة البالغ 60 دقيقة. تم الاحتفاظ بملفاتك.</string>
     <string name="md_reason_antigravity_model_unavailable">نموذج Antigravity المحدد غير متاح. حدّث النماذج من الإعدادات.</string>
     <string name="md_reason_antigravity_failed">تعذّر على Antigravity إكمال المهمة.</string>

@@ -52,6 +52,7 @@ import com.jarves.mh.network.ProviderApiClient
 import com.jarves.mh.network.GitHubRepository
 import com.jarves.mh.runtime.ClaudeRuntimeBridge
 import com.jarves.mh.runtime.DshRuntimeBridge
+import com.jarves.mh.runtime.ProviderRuntimeErrorDetector
 import com.jarves.mh.runtime.AgentRegistry
 import com.jarves.mh.runtime.AgentUpdateInfo
 import com.jarves.mh.runtime.AntigravityAuthController
@@ -5300,7 +5301,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         return when (trimmed) {
             "Stopped by user" -> str(R.string.md_reason_stopped_by_user)
             "User not found. Check the API key and provider account." -> str(R.string.md_reason_user_not_found)
-            "The provider rejected the saved API key." -> str(R.string.md_reason_key_rejected)
+            ProviderRuntimeErrorDetector.REJECTED_KEY -> str(R.string.md_reason_key_rejected)
+            ProviderRuntimeErrorDetector.RATE_LIMITED -> str(R.string.md_reason_rate_limited)
+            ProviderRuntimeErrorDetector.REQUEST_DENIED -> str(R.string.md_reason_request_denied)
+            "Antigravity was rate-limited. Wait a moment and try again." -> str(R.string.md_reason_antigravity_rate_limited)
             "Runtime verification failed. Nothing unverified was executed." -> str(R.string.md_reason_verification_failed)
             "The real Claude Code runtime could not start." -> str(R.string.md_reason_claude_could_not_start)
             "Claude Code reported an error" -> str(R.string.md_reason_claude_reported_error)

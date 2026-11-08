@@ -657,6 +657,10 @@ internal fun antigravityFriendlyError(raw: String, diagnostic: String = ""): Str
             "Antigravity needs Google sign-in. Open Settings → Coding agent."
         isStaleAntigravityConversation(value) ->
             "The previous Antigravity conversation is no longer available. Send your message again to start a new one."
+        // Rate limits are transient — do not conflate with exhausted credits.
+        // Match "rate limit" / HTTP 429 only (not the letters "rate" inside "generated").
+        value.contains("rate limit", true) || value.contains("HTTP 429", true) ->
+            "Antigravity was rate-limited. Wait a moment and try again."
         value.contains("out of credits", true) || value.contains("quota", true) ->
             "Your Antigravity account is out of credits. Check the account plan or wait for credits to reset."
         value.contains("timed out", true) || value.contains("timeout", true) ->

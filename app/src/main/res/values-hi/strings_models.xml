@@ -32,6 +32,8 @@
     <string name="md_chat_title_attachments">संलग्न फ़ाइलों की समीक्षा करें</string>
     <string name="md_reason_user_not_found">उपयोगकर्ता नहीं मिला। API कुंजी और प्रदाता खाता जांचें।</string>
     <string name="md_reason_key_rejected">प्रदाता ने सहेजी गई API कुंजी अस्वीकार कर दी।</string>
+    <string name="md_reason_rate_limited">प्रदाता ने अनुरोध की दर सीमित कर दी। थोड़ी देर बाद फिर कोशिश करें।</string>
+    <string name="md_reason_request_denied">प्रदाता ने यह अनुरोध अस्वीकार कर दिया। API कुंजी और खाता पहुँच जाँचें।</string>
     <string name="md_reason_verification_failed">रनटाइम सत्यापन विफल रहा। कुछ भी असत्यापित नहीं चलाया गया।</string>
     <string name="md_reason_claude_could_not_start">वास्तविक Claude Code रनटाइम शुरू नहीं हो सका।</string>
     <string name="md_reason_claude_reported_error">Claude Code ने एक त्रुटि बताई</string>
@@ -39,6 +41,7 @@
     <string name="md_reason_antigravity_exit_code">Antigravity कोड %1$d के साथ बंद हो गया</string>
     <string name="md_reason_antigravity_signin">Antigravity को Google साइन-इन चाहिए। सेटिंग्स → कोडिंग एजेंट खोलें।</string>
     <string name="md_reason_antigravity_no_credits">आपके Antigravity खाते के क्रेडिट खत्म हो गए हैं। खाता प्लान जांचें या क्रेडिट रीसेट होने की प्रतीक्षा करें।</string>
+    <string name="md_reason_antigravity_rate_limited">Antigravity ने अनुरोध की दर सीमित कर दी। थोड़ी देर बाद फिर कोशिश करें।</string>
     <string name="md_reason_antigravity_time_limit">Antigravity 60 मिनट की टास्क सीमा तक पहुंच गया। आपकी फ़ाइलें रखी गई हैं।</string>
     <string name="md_reason_antigravity_model_unavailable">चयनित Antigravity मॉडल उपलब्ध नहीं है। सेटिंग्स में मॉडल रीफ़्रेश करें।</string>
     <string name="md_reason_antigravity_failed">Antigravity टास्क पूरा नहीं कर सका।</string>

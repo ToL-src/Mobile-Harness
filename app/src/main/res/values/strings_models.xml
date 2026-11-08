@@ -32,6 +32,8 @@
     <string name="md_chat_title_attachments">Review the attached files</string>
     <string name="md_reason_user_not_found">User not found. Check the API key and provider account.</string>
     <string name="md_reason_key_rejected">The provider rejected the saved API key.</string>
+    <string name="md_reason_rate_limited">The provider rate-limited this request. Wait a moment and try again.</string>
+    <string name="md_reason_request_denied">The provider denied this request. Check the API key and account access.</string>
     <string name="md_reason_verification_failed">Runtime verification failed. Nothing unverified was executed.</string>
     <string name="md_reason_claude_could_not_start">The real Claude Code runtime could not start.</string>
     <string name="md_reason_claude_reported_error">Claude Code reported an error</string>
@@ -39,6 +41,7 @@
     <string name="md_reason_antigravity_exit_code">Antigravity exited with code %1$d</string>
     <string name="md_reason_antigravity_signin">Antigravity needs Google sign-in. Open Settings → Coding agent.</string>
     <string name="md_reason_antigravity_no_credits">Your Antigravity account is out of credits. Check the account plan or wait for credits to reset.</string>
+    <string name="md_reason_antigravity_rate_limited">Antigravity was rate-limited. Wait a moment and try again.</string>
     <string name="md_reason_antigravity_time_limit">Antigravity reached the 60-minute task limit. Your files were kept.</string>
     <string name="md_reason_antigravity_model_unavailable">The selected Antigravity model is unavailable. Refresh models in Settings.</string>
     <string name="md_reason_antigravity_failed">Antigravity could not complete the task.</string>

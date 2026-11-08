@@ -32,6 +32,8 @@
     <string name="md_chat_title_attachments">Просмотреть прикреплённые файлы</string>
     <string name="md_reason_user_not_found">Пользователь не найден. Проверьте API-ключ и аккаунт провайдера.</string>
     <string name="md_reason_key_rejected">Провайдер отклонил сохранённый API-ключ.</string>
+    <string name="md_reason_rate_limited">Провайдер ограничил частоту запросов. Подождите и попробуйте снова.</string>
+    <string name="md_reason_request_denied">Провайдер отклонил запрос. Проверьте API-ключ и доступ аккаунта.</string>
     <string name="md_reason_verification_failed">Проверка среды выполнения не пройдена. Ничего непроверенного не запускалось.</string>
     <string name="md_reason_claude_could_not_start">Не удалось запустить среду Claude Code.</string>
     <string name="md_reason_claude_reported_error">Claude Code сообщил об ошибке</string>
@@ -39,6 +41,7 @@
     <string name="md_reason_antigravity_exit_code">Antigravity завершился с кодом %1$d</string>
     <string name="md_reason_antigravity_signin">Antigravity требует входа через Google. Откройте Настройки → Агент для программирования.</string>
     <string name="md_reason_antigravity_no_credits">На аккаунте Antigravity закончились кредиты. Проверьте тариф или дождитесь их обновления.</string>
+    <string name="md_reason_antigravity_rate_limited">Antigravity ограничил частоту запросов. Подождите и попробуйте снова.</string>
     <string name="md_reason_antigravity_time_limit">Antigravity достиг 60-минутного лимита задачи. Ваши файлы сохранены.</string>
     <string name="md_reason_antigravity_model_unavailable">Выбранная модель Antigravity недоступна. Обновите список моделей в Настройках.</string>
     <string name="md_reason_antigravity_failed">Antigravity не удалось выполнить задачу.</string>

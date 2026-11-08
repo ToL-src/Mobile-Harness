@@ -32,6 +32,8 @@
     <string name="md_chat_title_attachments">Revisar los archivos adjuntos</string>
     <string name="md_reason_user_not_found">Usuario no encontrado. Comprueba la clave de API y la cuenta del proveedor.</string>
     <string name="md_reason_key_rejected">El proveedor rechazó la clave de API guardada.</string>
+    <string name="md_reason_rate_limited">El proveedor limitó la frecuencia de solicitudes. Espera un momento y vuelve a intentarlo.</string>
+    <string name="md_reason_request_denied">El proveedor denegó esta solicitud. Comprueba la clave de API y el acceso de la cuenta.</string>
     <string name="md_reason_verification_failed">Falló la verificación del entorno. No se ejecutó nada sin verificar.</string>
     <string name="md_reason_claude_could_not_start">No se pudo iniciar el entorno real de Claude Code.</string>
     <string name="md_reason_claude_reported_error">Claude Code informó de un error</string>
@@ -39,6 +41,7 @@
     <string name="md_reason_antigravity_exit_code">Antigravity terminó con el código %1$d</string>
     <string name="md_reason_antigravity_signin">Antigravity necesita iniciar sesión con Google. Abre Ajustes → Agente de programación.</string>
     <string name="md_reason_antigravity_no_credits">Tu cuenta de Antigravity se quedó sin créditos. Revisa el plan de la cuenta o espera a que se restablezcan los créditos.</string>
+    <string name="md_reason_antigravity_rate_limited">Antigravity limitó la frecuencia de solicitudes. Espera un momento y vuelve a intentarlo.</string>
     <string name="md_reason_antigravity_time_limit">Antigravity alcanzó el límite de 60 minutos por tarea. Tus archivos se conservaron.</string>
     <string name="md_reason_antigravity_model_unavailable">El modelo de Antigravity seleccionado no está disponible. Actualiza los modelos en Ajustes.</string>
     <string name="md_reason_antigravity_failed">Antigravity no pudo completar la tarea.</string>

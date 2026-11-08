@@ -32,6 +32,8 @@
     <string name="md_chat_title_attachments">Ελέγξτε τα συνημμένα αρχεία</string>
     <string name="md_reason_user_not_found">Ο χρήστης δεν βρέθηκε. Ελέγξτε το κλειδί API και τον λογαριασμό του παρόχου.</string>
     <string name="md_reason_key_rejected">Ο πάροχος απέρριψε το αποθηκευμένο κλειδί API.</string>
+    <string name="md_reason_rate_limited">Ο πάροχος περιόρισε τον ρυθμό αιτημάτων. Περιμένετε λίγο και δοκιμάστε ξανά.</string>
+    <string name="md_reason_request_denied">Ο πάροχος αρνήθηκε αυτό το αίτημα. Ελέγξτε το κλειδί API και την πρόσβαση του λογαριασμού.</string>
     <string name="md_reason_verification_failed">Η επαλήθευση του runtime απέτυχε. Δεν εκτελέστηκε τίποτα μη επαληθευμένο.</string>
     <string name="md_reason_claude_could_not_start">Δεν ήταν δυνατή η εκκίνηση του πραγματικού runtime του Claude Code.</string>
     <string name="md_reason_claude_reported_error">Το Claude Code ανέφερε σφάλμα</string>
@@ -39,6 +41,7 @@
     <string name="md_reason_antigravity_exit_code">Το Antigravity τερματίστηκε με κωδικό %1$d</string>
     <string name="md_reason_antigravity_signin">Το Antigravity απαιτεί σύνδεση με Google. Ανοίξτε Ρυθμίσεις → Agent προγραμματισμού.</string>
     <string name="md_reason_antigravity_no_credits">Ο λογαριασμός Antigravity δεν έχει άλλες μονάδες χρέωσης. Ελέγξτε το πρόγραμμα του λογαριασμού ή περιμένετε την ανανέωσή τους.</string>
+    <string name="md_reason_antigravity_rate_limited">Το Antigravity περιόρισε τον ρυθμό αιτημάτων. Περιμένετε λίγο και δοκιμάστε ξανά.</string>
     <string name="md_reason_antigravity_time_limit">Το Antigravity έφτασε το όριο εργασίας των 60 λεπτών. Τα αρχεία σας διατηρήθηκαν.</string>
     <string name="md_reason_antigravity_model_unavailable">Το επιλεγμένο μοντέλο Antigravity δεν είναι διαθέσιμο. Ανανεώστε τα μοντέλα στις Ρυθμίσεις.</string>
     <string name="md_reason_antigravity_failed">Το Antigravity δεν μπόρεσε να ολοκληρώσει την εργασία.</string>

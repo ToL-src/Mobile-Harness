@@ -32,6 +32,8 @@
     <string name="md_chat_title_attachments">查看附加的文件</string>
     <string name="md_reason_user_not_found">未找到用户。请检查 API 密钥和服务商账户。</string>
     <string name="md_reason_key_rejected">服务商拒绝了已保存的 API 密钥。</string>
+    <string name="md_reason_rate_limited">服务商限制了请求频率。请稍候再试。</string>
+    <string name="md_reason_request_denied">服务商拒绝了此请求。请检查 API 密钥和账户权限。</string>
     <string name="md_reason_verification_failed">运行环境验证失败。未执行任何未经验证的内容。</string>
     <string name="md_reason_claude_could_not_start">无法启动 Claude Code 运行环境。</string>
     <string name="md_reason_claude_reported_error">Claude Code 报告了一个错误</string>
@@ -39,6 +41,7 @@
     <string name="md_reason_antigravity_exit_code">Antigravity 已退出，代码 %1$d</string>
     <string name="md_reason_antigravity_signin">Antigravity 需要 Google 登录。请打开“设置 → 编程代理”。</string>
     <string name="md_reason_antigravity_no_credits">你的 Antigravity 账户额度已用完。请检查账户方案或等待额度重置。</string>
+    <string name="md_reason_antigravity_rate_limited">Antigravity 限制了请求频率。请稍候再试。</string>
     <string name="md_reason_antigravity_time_limit">Antigravity 已达到 60 分钟的任务上限。你的文件已保留。</string>
     <string name="md_reason_antigravity_model_unavailable">所选的 Antigravity 模型不可用。请在设置中刷新模型。</string>
     <string name="md_reason_antigravity_failed">Antigravity 无法完成任务。</string>

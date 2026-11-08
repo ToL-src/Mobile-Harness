@@ -546,18 +546,18 @@ class DshRuntimeBridge(
 
     private fun friendlyError(error: Throwable): String {
         val message = error.message.orEmpty()
+        // Auth/rate-limit reasons are classified only after the SDK turn finishes
+        // (failure string / non-success path) — never by killing mid-stream.
+        when (val classified = ProviderRuntimeErrorDetector.classifyFinal(message)) {
+            ProviderRuntimeErrorDetector.USER_NOT_FOUND,
+            ProviderRuntimeErrorDetector.REJECTED_KEY,
+            ProviderRuntimeErrorDetector.RATE_LIMITED,
+            ProviderRuntimeErrorDetector.REQUEST_DENIED,
+            -> return classified
+        }
         return when {
+            message.contains("autherror", true) -> ProviderRuntimeErrorDetector.REJECTED_KEY
             error is DshSessionException && message.isMeaningfulDshText() -> message
-            message.contains("authentication", true) ||
-                message.contains("invalid api key", true) ||
-                message.contains("autherror", true) ||
-                message.contains("expired", true) ||
-                message.contains("quota", true) ||
-                message.contains("rate limit", true) ||
-                listOf("401", "403", "429").any { code ->
-                    message.contains(code) && (message.contains("auth", true) || message.contains("HTTP", true))
-                } ->
-                "The provider rejected the saved API key."
             message.contains("missing_credential", true) ->
                 "No API key reached DeepSeek Harness. Re-save the provider key in Settings."
             message.contains("not installed", true) -> message.take(300)
