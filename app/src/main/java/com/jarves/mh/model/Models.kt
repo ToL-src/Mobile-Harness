@@ -378,6 +378,48 @@ data class ChangeItem(
     val accepted: Boolean? = null,
 )
 
+enum class GitFileStatus { MODIFIED, ADDED, DELETED, RENAMED, UNTRACKED, CONFLICT }
+
+data class GitFileChange(
+    val path: String,
+    val status: GitFileStatus,
+    val additions: Int,
+    val deletions: Int,
+    val diffLines: List<DiffLine> = emptyList(),
+    val selected: Boolean = true,
+    val looksSecret: Boolean = false,
+    val renameFrom: String? = null,
+)
+
+data class GitCommitFileStat(
+    val path: String,
+    val additions: Int = 0,
+    val deletions: Int = 0,
+)
+
+data class GitUnpushedCommit(
+    val hash: String,
+    val shortHash: String,
+    val subject: String,
+    val files: List<GitCommitFileStat> = emptyList(),
+    val additions: Int = 0,
+    val deletions: Int = 0,
+) {
+    val paths: List<String> get() = files.map { it.path }
+}
+
+data class GitWorkingTreeState(
+    val available: Boolean = false,
+    val branch: String? = null,
+    val aheadCount: Int = 0,
+    val unpushedCommits: List<GitUnpushedCommit> = emptyList(),
+    val files: List<GitFileChange> = emptyList(),
+    val loading: Boolean = false,
+    val committing: Boolean = false,
+    val pushing: Boolean = false,
+    val error: String? = null,
+)
+
 data class ActivityItem(
     val title: String,
     val detail: String,

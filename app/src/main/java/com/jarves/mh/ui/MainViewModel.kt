@@ -49,9 +49,17 @@ import com.jarves.mh.model.providerProtocolForAgent
 import com.jarves.mh.network.ConnectionValidation
 import com.jarves.mh.network.ModelDiscoveryResult
 import com.jarves.mh.network.ProviderApiClient
+import com.jarves.mh.model.DiffLine
+import com.jarves.mh.model.DiffLineType
+import com.jarves.mh.model.GitCommitFileStat
+import com.jarves.mh.model.GitFileChange
+import com.jarves.mh.model.GitFileStatus
+import com.jarves.mh.model.GitUnpushedCommit
+import com.jarves.mh.model.GitWorkingTreeState
 import com.jarves.mh.network.GitHubRepository
 import com.jarves.mh.network.GitLabClient
 import com.jarves.mh.network.GitLabRepository
+import com.jarves.mh.runtime.WorkspaceGit
 import com.jarves.mh.runtime.ClaudeRuntimeBridge
 import com.jarves.mh.runtime.DshRuntimeBridge
 import com.jarves.mh.runtime.ProviderRuntimeErrorDetector
@@ -337,6 +345,13 @@ data class AppUiState(
     val pendingAttachments: List<ChatAttachment> = emptyList(),
     val pendingApproval: ToolRequest? = null,
     val changes: List<ChangeItem> = emptyList(),
+    val gitTree: GitWorkingTreeState = GitWorkingTreeState(),
+    val gitCommitMessage: String = "",
+    val gitNeedsIdentity: Boolean = false,
+    val gitSecretWarningPaths: List<String> = emptyList(),
+    val gitPendingPush: Boolean = false,
+    val gitDiscardConfirmPaths: List<String> = emptyList(),
+    val gitUndoCommitConfirm: Boolean = false,
     val activity: List<ActivityItem> = emptyList(),
     val liveProcess: List<ActivityItem> = emptyList(),
     val liveThinking: Boolean = false,
@@ -466,6 +481,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var githubAuthJob: kotlinx.coroutines.Job? = null
     private var gitlabAuthJob: kotlinx.coroutines.Job? = null
     @Volatile private var gitlabSessionEpoch: Int = 0
+    @Volatile private var gitOpEpoch: Int = 0
     @Volatile private var lastOpenedAntigravityAuthUrl: String? = null
     private var activeRuntimeRequest: RuntimeRetryRequest? = null
     private val pendingFollowUps = java.util.ArrayDeque<QueuedFollowUp>()
@@ -3021,6 +3037,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
             return
         }
+        gitOpEpoch++
         configureBridgeRoots(project.id, project.rootPath)
         val terminal = loadProjectTerminal(project)
         val suggestedRoot = if (project.rootPath.isBlank()) detectNestedProjectRoot(project) else null
@@ -3047,6 +3064,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 taskStartedAtMillis = null,
                 taskFinishedAtMillis = null,
                 changes = emptyList(),
+                gitTree = GitWorkingTreeState(),
+                gitCommitMessage = "",
+                gitNeedsIdentity = false,
+                gitSecretWarningPaths = emptyList(),
+                gitPendingPush = false,
+                gitDiscardConfirmPaths = emptyList(),
+                gitUndoCommitConfirm = false,
                 workspaceFiles = emptyList(),
                 androidProjectDetected = false,
                 filesLoading = true,
@@ -3080,6 +3104,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val pending = activeRuntime().loadPendingChanges(project.id)
             if (_state.value.activeProject?.id == project.id) _state.update { it.copy(changes = pending) }
         }
+        refreshGitStatus()
     }
 
     fun closeProject() {
@@ -3129,6 +3154,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 projectChats = emptyList(),
                 activeChatId = null,
                 changes = emptyList(),
+                gitTree = GitWorkingTreeState(),
+                gitCommitMessage = "",
+                gitNeedsIdentity = false,
+                gitSecretWarningPaths = emptyList(),
+                gitPendingPush = false,
+                gitDiscardConfirmPaths = emptyList(),
+                gitUndoCommitConfirm = false,
                 workspaceFiles = emptyList(),
                 androidProjectDetected = false,
                 filesLoading = false,
@@ -5199,6 +5231,666 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             if (activeRuntime().acceptFileChange(project.id, path)) {
                 _state.update { current -> current.copy(changes = current.changes.filterNot { it.path == path }) }
             }
+        }
+    }
+
+    fun refreshGitStatus() {
+        val project = _state.value.activeProject ?: return
+        val tree = _state.value.gitTree
+        if (tree.loading || tree.committing || tree.pushing) return
+        val epoch = gitOpEpoch
+        _state.update { it.copy(gitTree = it.gitTree.copy(loading = true, error = null)) }
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) { runCatching { loadGitWorkingTree(project) } }
+            if (epoch != gitOpEpoch || _state.value.activeProject?.id != project.id) {
+                _state.update { current ->
+                    if (current.activeProject?.id == project.id) current
+                    else current.copy(gitTree = current.gitTree.copy(loading = false, committing = false, pushing = false))
+                }
+                return@launch
+            }
+            result.onSuccess { loaded ->
+                _state.update { current ->
+                    // Preserve in-flight push/commit if a race set them after we started.
+                    itGitTreeMerge(current, loaded)
+                }
+            }.onFailure { error ->
+                _state.update {
+                    it.copy(
+                        gitTree = GitWorkingTreeState(
+                            available = it.gitTree.available,
+                            branch = it.gitTree.branch,
+                            aheadCount = it.gitTree.aheadCount,
+                            unpushedCommits = it.gitTree.unpushedCommits,
+                            error = error.message?.take(240),
+                            loading = false,
+                            committing = false,
+                            pushing = it.gitTree.pushing,
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
+    private fun itGitTreeMerge(current: AppUiState, loaded: GitWorkingTreeState): AppUiState =
+        current.copy(
+            gitTree = loaded.copy(
+                committing = current.gitTree.committing,
+                pushing = current.gitTree.pushing,
+                loading = false,
+            ),
+        )
+
+    fun toggleGitFile(path: String) {
+        _state.update { current ->
+            current.copy(
+                gitTree = current.gitTree.copy(
+                    files = current.gitTree.files.map { file ->
+                        if (file.path == path) file.copy(selected = !file.selected) else file
+                    },
+                ),
+            )
+        }
+    }
+
+    fun selectAllGitFiles(selected: Boolean) {
+        _state.update { current ->
+            current.copy(
+                gitTree = current.gitTree.copy(
+                    files = current.gitTree.files.map { it.copy(selected = selected) },
+                ),
+            )
+        }
+    }
+
+    fun setGitCommitMessage(message: String) {
+        _state.update { it.copy(gitCommitMessage = message) }
+    }
+
+    fun dismissGitSecretWarning() {
+        _state.update { it.copy(gitSecretWarningPaths = emptyList(), gitPendingPush = false) }
+    }
+
+    fun dismissGitIdentityPrompt() {
+        _state.update { it.copy(gitNeedsIdentity = false, gitPendingPush = false) }
+    }
+
+    fun confirmGitSecretWarning() {
+        val push = _state.value.gitPendingPush
+        _state.update { it.copy(gitSecretWarningPaths = emptyList(), gitPendingPush = false) }
+        performGitCommit(push = push, secretsConfirmed = true)
+    }
+
+    fun setGitIdentity(name: String, email: String) {
+        val project = _state.value.activeProject ?: return
+        val trimmedName = name.trim()
+        val trimmedEmail = email.trim()
+        if (trimmedName.isBlank() || trimmedEmail.isBlank() || '@' !in trimmedEmail) {
+            _state.update { it.copy(toastMessage = str(R.string.vm_git_identity_invalid)) }
+            return
+        }
+        val push = _state.value.gitPendingPush
+        val epoch = gitOpEpoch
+        viewModelScope.launch {
+            val configured = withContext(Dispatchers.IO) {
+                runCatching {
+                    val nameResult = runGit(project, WorkspaceGit.setIdentityNameCommand(trimmedName))
+                    check(nameResult.exit == 0) { nameResult.output.takeLast(200).ifBlank { str(R.string.vm_git_identity_failed) } }
+                    val emailResult = runGit(project, WorkspaceGit.setIdentityEmailCommand(trimmedEmail))
+                    check(emailResult.exit == 0) { emailResult.output.takeLast(200).ifBlank { str(R.string.vm_git_identity_failed) } }
+                }
+            }
+            if (epoch != gitOpEpoch || _state.value.activeProject?.id != project.id) return@launch
+            configured.onSuccess {
+                _state.update { it.copy(gitNeedsIdentity = false, gitPendingPush = false) }
+                // Re-run secret gate after identity — selection may have changed while the dialog was open.
+                performGitCommit(push = push, secretsConfirmed = false)
+            }.onFailure { error ->
+                _state.update {
+                    it.copy(
+                        gitNeedsIdentity = false,
+                        gitPendingPush = false,
+                        toastMessage = error.message?.take(180) ?: str(R.string.vm_git_identity_failed),
+                    )
+                }
+            }
+        }
+    }
+
+    fun commitGitSelection() = prepareGitCommit(push = false)
+
+    fun commitAndPushGitSelection() = prepareGitCommit(push = true)
+
+    fun requestDiscardGitSelection() {
+        val selected = _state.value.gitTree.files.filter { it.selected }.map { it.path }
+        if (selected.isEmpty()) {
+            _state.update { it.copy(toastMessage = str(R.string.vm_git_select_files)) }
+            return
+        }
+        _state.update { it.copy(gitDiscardConfirmPaths = selected) }
+    }
+
+    fun dismissGitDiscard() {
+        _state.update { it.copy(gitDiscardConfirmPaths = emptyList()) }
+    }
+
+    fun confirmDiscardGitSelection() {
+        val project = _state.value.activeProject ?: return
+        val frozenPaths = _state.value.gitDiscardConfirmPaths
+        if (frozenPaths.isEmpty()) return
+        // Use the paths frozen into the dialog, not live checkbox state.
+        val selected = _state.value.gitTree.files.filter { it.path in frozenPaths }
+        if (selected.isEmpty()) {
+            _state.update { it.copy(gitDiscardConfirmPaths = emptyList()) }
+            return
+        }
+        val epoch = gitOpEpoch
+        _state.update {
+            it.copy(
+                gitDiscardConfirmPaths = emptyList(),
+                gitTree = it.gitTree.copy(committing = true, error = null),
+            )
+        }
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching { discardGitFiles(project, selected) }
+            }
+            if (epoch != gitOpEpoch || _state.value.activeProject?.id != project.id) {
+                clearGitBusyIfStale(project.id)
+                return@launch
+            }
+            result.onSuccess {
+                _state.update {
+                    it.copy(
+                        gitTree = it.gitTree.copy(committing = false),
+                        toastMessage = str(R.string.vm_git_discard_ok),
+                    )
+                }
+                refreshProjectFiles()
+                refreshGitStatus()
+            }.onFailure { error ->
+                _state.update {
+                    it.copy(
+                        gitTree = it.gitTree.copy(
+                            committing = false,
+                            error = error.message?.take(240),
+                        ),
+                        toastMessage = str(
+                            R.string.vm_git_discard_failed_detail,
+                            error.message?.lineSequence()?.lastOrNull()?.take(160) ?: str(R.string.vm_unknown_error),
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
+    private fun discardGitFiles(project: Project, selected: List<GitFileChange>) {
+        val plan = WorkspaceGit.planDiscard(
+            selected.map { WorkspaceGit.DiscardInput(it.path, it.status, it.renameFrom) },
+        )
+        check(!plan.hasConflict) { str(R.string.vm_git_discard_conflict) }
+        if (plan.checkoutPaths.isNotEmpty()) {
+            runGit(project, WorkspaceGit.unstageCommand(plan.checkoutPaths), allowNonZero = true)
+            val checkout = runGit(project, WorkspaceGit.discardTrackedCommand(plan.checkoutPaths))
+            check(checkout.exit == 0) {
+                checkout.output.takeLast(400).ifBlank { str(R.string.vm_git_discard_failed) }
+            }
+        }
+        if (plan.cleanPaths.isNotEmpty()) {
+            // ADDED paths must be unstaged before clean can delete them.
+            runGit(project, WorkspaceGit.unstageCommand(plan.cleanPaths), allowNonZero = true)
+            val clean = runGit(project, WorkspaceGit.discardUntrackedCommand(plan.cleanPaths))
+            check(clean.exit == 0) {
+                clean.output.takeLast(400).ifBlank { str(R.string.vm_git_discard_failed) }
+            }
+        }
+    }
+
+    private fun clearGitBusyIfStale(projectId: String) {
+        _state.update { current ->
+            if (current.activeProject?.id == projectId) current
+            else current.copy(gitTree = current.gitTree.copy(loading = false, committing = false, pushing = false))
+        }
+    }
+
+    fun requestUndoLastGitCommit() {
+        val tree = _state.value.gitTree
+        if (!tree.available || tree.unpushedCommits.isEmpty()) {
+            _state.update { it.copy(toastMessage = str(R.string.vm_git_nothing_to_undo)) }
+            return
+        }
+        _state.update { it.copy(gitUndoCommitConfirm = true) }
+    }
+
+    fun dismissUndoLastGitCommit() {
+        _state.update { it.copy(gitUndoCommitConfirm = false) }
+    }
+
+    fun confirmUndoLastGitCommit() {
+        val project = _state.value.activeProject ?: return
+        val head = _state.value.gitTree.unpushedCommits.firstOrNull()
+        if (head == null) {
+            _state.update { it.copy(gitUndoCommitConfirm = false, toastMessage = str(R.string.vm_git_nothing_to_undo)) }
+            return
+        }
+        val expectedHash = head.hash
+        val epoch = gitOpEpoch
+        _state.update {
+            it.copy(
+                gitUndoCommitConfirm = false,
+                gitTree = it.gitTree.copy(committing = true, error = null),
+            )
+        }
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    val tip = runGit(project, WorkspaceGit.revParseHeadCommand())
+                    check(tip.exit == 0) { tip.output.takeLast(200).ifBlank { str(R.string.vm_git_undo_commit_failed) } }
+                    check(tip.output.trim().equals(expectedHash, ignoreCase = true)) {
+                        str(R.string.vm_git_undo_commit_stale)
+                    }
+                    val reset = runGit(project, WorkspaceGit.softResetLastCommand())
+                    check(reset.exit == 0) {
+                        reset.output.takeLast(400).ifBlank { str(R.string.vm_git_undo_commit_failed) }
+                    }
+                    head.subject
+                }
+            }
+            if (epoch != gitOpEpoch || _state.value.activeProject?.id != project.id) {
+                clearGitBusyIfStale(project.id)
+                return@launch
+            }
+            result.onSuccess { subject ->
+                _state.update {
+                    it.copy(
+                        gitTree = it.gitTree.copy(committing = false),
+                        gitCommitMessage = subject.ifBlank { it.gitCommitMessage },
+                        toastMessage = str(R.string.vm_git_undo_commit_ok),
+                    )
+                }
+                refreshGitStatus()
+            }.onFailure { error ->
+                _state.update {
+                    it.copy(
+                        gitTree = it.gitTree.copy(
+                            committing = false,
+                            error = error.message?.take(240),
+                        ),
+                        toastMessage = str(
+                            R.string.vm_git_undo_commit_failed_detail,
+                            error.message?.lineSequence()?.lastOrNull()?.take(160) ?: str(R.string.vm_unknown_error),
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
+    fun pushPendingGitCommits() {
+        val project = _state.value.activeProject ?: return
+        val tree = _state.value.gitTree
+        if (!tree.available || tree.pushing || tree.committing || tree.loading) return
+        if (tree.aheadCount <= 0 && tree.unpushedCommits.isEmpty()) {
+            _state.update { it.copy(toastMessage = str(R.string.vm_git_nothing_to_push)) }
+            return
+        }
+        val epoch = gitOpEpoch
+        _state.update { it.copy(gitTree = it.gitTree.copy(pushing = true, error = null)) }
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching { pushGit(project) }
+            }
+            if (epoch != gitOpEpoch || _state.value.activeProject?.id != project.id) {
+                clearGitBusyIfStale(project.id)
+                return@launch
+            }
+            result.onSuccess {
+                _state.update {
+                    it.copy(
+                        gitTree = it.gitTree.copy(pushing = false),
+                        toastMessage = str(R.string.vm_git_push_ok),
+                    )
+                }
+                refreshGitStatus()
+            }.onFailure { error ->
+                _state.update {
+                    it.copy(
+                        gitTree = it.gitTree.copy(
+                            pushing = false,
+                            error = error.message?.take(240),
+                        ),
+                        toastMessage = str(
+                            R.string.vm_git_push_failed_detail,
+                            error.message?.lineSequence()?.lastOrNull()?.take(160) ?: str(R.string.vm_unknown_error),
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
+    private fun prepareGitCommit(push: Boolean) {
+        val tree = _state.value.gitTree
+        if (!tree.available || tree.committing || tree.loading || tree.pushing) return
+        val selected = tree.files.filter { it.selected }
+        if (selected.isEmpty()) {
+            _state.update { it.copy(toastMessage = str(R.string.vm_git_select_files)) }
+            return
+        }
+        if (_state.value.gitCommitMessage.trim().isEmpty()) {
+            _state.update { it.copy(toastMessage = str(R.string.vm_git_message_required)) }
+            return
+        }
+        val secrets = selected.filter { it.looksSecret }.map { it.path }
+        if (secrets.isNotEmpty()) {
+            _state.update { it.copy(gitSecretWarningPaths = secrets, gitPendingPush = push) }
+            return
+        }
+        performGitCommit(push = push, secretsConfirmed = false)
+    }
+
+    private fun performGitCommit(push: Boolean, secretsConfirmed: Boolean) {
+        val project = _state.value.activeProject ?: return
+        val tree = _state.value.gitTree
+        if (!tree.available || tree.committing || tree.pushing) return
+        val selected = tree.files.filter { it.selected }.map { it.path }
+        val message = _state.value.gitCommitMessage.trim()
+        if (selected.isEmpty() || message.isEmpty()) return
+        if (!secretsConfirmed) {
+            val secrets = tree.files.filter { it.selected && it.looksSecret }.map { it.path }
+            if (secrets.isNotEmpty()) {
+                _state.update { it.copy(gitSecretWarningPaths = secrets, gitPendingPush = push) }
+                return
+            }
+        }
+        val epoch = gitOpEpoch
+        _state.update {
+            it.copy(
+                gitTree = it.gitTree.copy(committing = true, error = null),
+                gitSecretWarningPaths = emptyList(),
+                gitPendingPush = false,
+            )
+        }
+        viewModelScope.launch {
+            var committed = false
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    val name = runGit(project, WorkspaceGit.identityNameCommand()).output.trim()
+                    val email = runGit(project, WorkspaceGit.identityEmailCommand()).output.trim()
+                    if (name.isBlank() || email.isBlank()) {
+                        return@runCatching CommitOutcome.NeedsIdentity
+                    }
+                    // Unstage everything first so a soft-reset leftover index cannot leak deselected paths.
+                    runGit(project, listOf("git", "reset", "HEAD"), allowNonZero = true)
+                    val stage = runGit(project, WorkspaceGit.stageCommand(selected))
+                    check(stage.exit == 0) { stage.output.takeLast(400).ifBlank { str(R.string.vm_git_stage_failed) } }
+                    val messageFile = File(projectGitWorkspace(project), ".pocket-commit-msg.txt")
+                    try {
+                        messageFile.writeText(message)
+                        val guestMsg = "${projectGuestRoot(project)}/.pocket-commit-msg.txt"
+                        val commit = runGit(project, WorkspaceGit.commitCommand(guestMsg, selected))
+                        check(commit.exit == 0) {
+                            commit.output.takeLast(500).ifBlank { str(R.string.vm_git_commit_failed) }
+                        }
+                        committed = true
+                    } finally {
+                        messageFile.delete()
+                    }
+                    if (push) {
+                        runCatching { pushGit(project) }.getOrElse { pushError ->
+                            return@runCatching CommitOutcome.PushFailed(pushError.message)
+                        }
+                    }
+                    CommitOutcome.Success(pushed = push)
+                }
+            }
+            if (epoch != gitOpEpoch || _state.value.activeProject?.id != project.id) {
+                clearGitBusyIfStale(project.id)
+                return@launch
+            }
+            when (val outcome = result.getOrNull()) {
+                CommitOutcome.NeedsIdentity -> {
+                    _state.update {
+                        it.copy(
+                            gitTree = it.gitTree.copy(committing = false),
+                            gitNeedsIdentity = true,
+                            gitPendingPush = push,
+                        )
+                    }
+                }
+                is CommitOutcome.Success -> {
+                    _state.update {
+                        it.copy(
+                            gitCommitMessage = "",
+                            gitTree = it.gitTree.copy(committing = false),
+                            toastMessage = if (outcome.pushed) {
+                                str(R.string.vm_git_commit_push_ok)
+                            } else {
+                                str(R.string.vm_git_commit_ok)
+                            },
+                        )
+                    }
+                    refreshGitStatus()
+                }
+                is CommitOutcome.PushFailed -> {
+                    _state.update {
+                        it.copy(
+                            gitCommitMessage = "",
+                            gitTree = it.gitTree.copy(committing = false),
+                            toastMessage = str(
+                                R.string.vm_git_push_failed_detail,
+                                outcome.message?.lineSequence()?.lastOrNull()?.take(160)
+                                    ?: str(R.string.vm_unknown_error),
+                            ),
+                        )
+                    }
+                    refreshGitStatus()
+                }
+                null -> {
+                    _state.update {
+                        it.copy(
+                            gitTree = it.gitTree.copy(
+                                committing = false,
+                                error = result.exceptionOrNull()?.message?.take(240),
+                            ),
+                            toastMessage = str(
+                                if (committed) R.string.vm_git_push_failed_detail else R.string.vm_git_commit_failed_detail,
+                                result.exceptionOrNull()?.message?.lineSequence()?.lastOrNull()?.take(160)
+                                    ?: str(R.string.vm_unknown_error),
+                            ),
+                        )
+                    }
+                    if (committed) refreshGitStatus()
+                }
+            }
+        }
+    }
+
+    private sealed interface CommitOutcome {
+        data object NeedsIdentity : CommitOutcome
+        data class Success(val pushed: Boolean) : CommitOutcome
+        data class PushFailed(val message: String?) : CommitOutcome
+    }
+
+    private data class GitCommandResult(val exit: Int, val output: String)
+
+    private fun projectGitWorkspace(project: Project): File =
+        File(getApplication<Application>().filesDir, "workspaces/${project.id}").apply { mkdirs() }.canonicalFile
+
+    private fun loadGitWorkingTree(project: Project): GitWorkingTreeState {
+        if (!installer.isInstalled()) return GitWorkingTreeState(available = false)
+        val workspace = projectGitWorkspace(project)
+        if (!File(workspace, ".git").exists()) return GitWorkingTreeState(available = false)
+        val status = runGit(project, WorkspaceGit.statusCommand())
+        if (status.exit != 0 && status.output.contains("not a git repository", ignoreCase = true)) {
+            return GitWorkingTreeState(available = false)
+        }
+        check(status.exit == 0) { status.output.takeLast(300).ifBlank { str(R.string.vm_git_status_failed) } }
+        val parsed = WorkspaceGit.parsePorcelainV1(status.output)
+        val previousSelected = _state.value.gitTree.files.associate { it.path to it.selected }
+        val files = parsed.entries.map { entry ->
+            val diff = loadGitDiff(project, entry)
+            GitFileChange(
+                path = entry.path,
+                status = entry.status,
+                additions = diff.additions,
+                deletions = diff.deletions,
+                diffLines = diff.lines,
+                selected = previousSelected[entry.path] ?: true,
+                looksSecret = WorkspaceGit.looksSecret(entry.path),
+                renameFrom = entry.renameFrom,
+            )
+        }
+        val unpushed = loadUnpushedCommits(project, parsed.aheadCount)
+        return GitWorkingTreeState(
+            available = true,
+            branch = parsed.branch,
+            aheadCount = maxOf(parsed.aheadCount, unpushed.size),
+            unpushedCommits = unpushed,
+            files = files,
+            loading = false,
+            committing = false,
+            pushing = false,
+            error = null,
+        )
+    }
+
+    private fun loadUnpushedCommits(project: Project, aheadHint: Int): List<GitUnpushedCommit> {
+        if (aheadHint <= 0) {
+            // Still try once — porcelain ahead can be missing without upstream tracking.
+            val probe = runGit(project, WorkspaceGit.logAheadCommand(), allowNonZero = true)
+            if (probe.exit != 0 || probe.output.isBlank()) return emptyList()
+            return materializeUnpushed(project, WorkspaceGit.parseLogAhead(probe.output))
+        }
+        val log = runGit(project, WorkspaceGit.logAheadCommand(), allowNonZero = true)
+        if (log.exit != 0 || log.output.isBlank()) return emptyList()
+        return materializeUnpushed(project, WorkspaceGit.parseLogAhead(log.output))
+    }
+
+    private fun materializeUnpushed(
+        project: Project,
+        entries: List<WorkspaceGit.LogCommit>,
+    ): List<GitUnpushedCommit> =
+        entries.map { entry ->
+            val numstat = runGit(project, WorkspaceGit.showCommitNumstatCommand(entry.hash), allowNonZero = true)
+            val stats = WorkspaceGit.parseCommitNumstat(numstat.output)
+            GitUnpushedCommit(
+                hash = entry.hash,
+                shortHash = entry.hash.take(7),
+                subject = entry.subject,
+                files = stats.files.map { GitCommitFileStat(it.path, it.additions, it.deletions) },
+                additions = stats.additions,
+                deletions = stats.deletions,
+            )
+        }
+
+    private fun loadGitDiff(project: Project, entry: WorkspaceGit.PorcelainEntry): WorkspaceGit.DiffStats {
+        val command = when (entry.status) {
+            GitFileStatus.UNTRACKED -> WorkspaceGit.diffUntrackedCommand(entry.path)
+            else -> WorkspaceGit.diffHeadCommand(entry.path)
+        }
+        val result = runGit(project, command, allowNonZero = true)
+        if (result.output.isBlank()) {
+            return WorkspaceGit.DiffStats(
+                lines = listOf(DiffLine(DiffLineType.INFO, str(R.string.vm_git_no_diff))),
+                additions = 0,
+                deletions = 0,
+            )
+        }
+        if (result.output.length > 1_000_000) {
+            return WorkspaceGit.DiffStats(
+                lines = listOf(DiffLine(DiffLineType.INFO, str(R.string.vm_git_diff_too_large))),
+                additions = 0,
+                deletions = 0,
+            )
+        }
+        return WorkspaceGit.parseUnifiedDiff(result.output)
+    }
+
+    private fun pushGit(project: Project) {
+        val remote = runGit(project, WorkspaceGit.remoteUrlCommand(), allowNonZero = true).output.trim()
+        check(remote.isNotBlank()) { str(R.string.vm_git_no_remote) }
+        val askPassFile: File?
+        val environment = mutableMapOf(
+            "GIT_TERMINAL_PROMPT" to "0",
+            "GH_PROMPT_DISABLED" to "1",
+            "GH_NO_UPDATE_NOTIFIER" to "1",
+        )
+        when {
+            WorkspaceGit.isGitHubRemote(remote) &&
+                _state.value.githubAuthStatus == GitHubAuthStatus.CONNECTED &&
+                installer.isGitHubCliInstalled() -> {
+                askPassFile = null
+                environment.putAll(githubCliEnvironment())
+            }
+            WorkspaceGit.isGitLabRemote(remote, _state.value.gitlabHost ?: preferences.gitlabHost) -> {
+                val token = vault.get(GITLAB_VAULT_KEY)
+                check(!token.isNullOrBlank()) { str(R.string.vm_git_push_need_gitlab) }
+                askPassFile = File(
+                    getApplication<Application>().filesDir,
+                    "runtime-bridge/git-askpass-push-${System.nanoTime()}.sh",
+                )
+                askPassFile.parentFile?.mkdirs()
+                writeGitAskPassScript(
+                    askPassFile,
+                    GitAskPassCredentials(username = "oauth2", password = token),
+                )
+                val guestAskPass = "/pocket-bridge/${askPassFile.name}"
+                environment["GIT_ASKPASS"] = guestAskPass
+                environment["SSH_ASKPASS"] = guestAskPass
+                environment["SSH_ASKPASS_REQUIRE"] = "never"
+            }
+            else -> error(str(R.string.vm_git_push_need_auth))
+        }
+        try {
+            if (askPassFile != null) {
+                val guestAskPass = "/pocket-bridge/${askPassFile.name}"
+                val push = runGit(
+                    project,
+                    listOf("sh", "-c", "chmod 700 \"$guestAskPass\" && exec \"\$@\"", "git-push-wrap") +
+                        WorkspaceGit.pushCommand(),
+                    environment = environment,
+                )
+                check(push.exit == 0) { push.output.takeLast(500).ifBlank { str(R.string.vm_git_push_failed) } }
+            } else {
+                val push = runGit(project, WorkspaceGit.pushCommand(), environment = environment)
+                check(push.exit == 0) { push.output.takeLast(500).ifBlank { str(R.string.vm_git_push_failed) } }
+            }
+        } finally {
+            askPassFile?.delete()
+        }
+    }
+
+    private fun runGit(
+        project: Project,
+        command: List<String>,
+        environment: Map<String, String> = mapOf("GIT_TERMINAL_PROMPT" to "0"),
+        allowNonZero: Boolean = false,
+    ): GitCommandResult {
+        check(installer.isInstalled()) { str(R.string.vm_linux_not_ready) }
+        val installed = installer.installedRuntime()
+        val workspace = projectGitWorkspace(project)
+        val output = File(getApplication<Application>().cacheDir, "git-cmd-${System.nanoTime()}.log")
+        return try {
+            val process = installer.process(
+                installed.proot,
+                installed.rootfs,
+                workspace,
+                environment,
+                command,
+                guestWorkspacePath = projectGuestRoot(project),
+                outputFile = output,
+            )
+            val exit = process.waitFor()
+            val text = output.readTailText(MAX_PROCESS_OUTPUT_BYTES).trim()
+            if (!allowNonZero && exit != 0 && text.contains("not a git repository", ignoreCase = true)) {
+                return GitCommandResult(exit, text)
+            }
+            GitCommandResult(exit, text)
+        } finally {
+            output.delete()
         }
     }
 

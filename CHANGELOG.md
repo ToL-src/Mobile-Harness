@@ -10,6 +10,29 @@ In-app **What's New** (`strings_whats_new.xml`) is separate — update it only w
 
 ### Added
 
+**Git changes on the Changes tab**
+
+Review the real git working tree beside AI Undo/Keep: select files, preview diffs, discard, commit, and push (GitHub via `gh`, GitLab via stored PAT / askpass). Unpushed commits list hash, message, per-file `+/-`, with undo (soft reset). Hidden when the project has no `.git`.
+
+<table>
+  <tr>
+    <th width="50%" align="center">Working tree</th>
+    <th width="50%" align="center">Unpushed</th>
+  </tr>
+  <tr>
+    <td align="center" valign="top">
+      <img src="docs/screenshots/git-working-tree.jpg" alt="Git working tree with select, discard, commit, and push" width="100%" />
+    </td>
+    <td align="center" valign="top">
+      <img src="docs/screenshots/git-unpushed-commits.jpg" alt="Unpushed commits with per-file line stats and undo" width="100%" />
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Select files, expand diffs, Discard / Commit / Push</sub></td>
+    <td align="center"><sub>Inspect unpushed commits, undo last, then push</sub></td>
+  </tr>
+</table>
+
 **GitLab import (custom host + PAT)**
 
 Bring existing private GitLab projects into Mobile Harness:
@@ -42,9 +65,17 @@ Bring existing private GitLab projects into Mobile Harness:
 - Agent sessions no longer abort on mid-stream Claude Code `api_retry` / auth noise. Fatal auth and rate-limit reasons are classified only after the final `result` or a non-zero exit; the CLI is torn down on failure.
 - DeepSeek Harness and Antigravity: rate-limit messages are distinct from rejected API key / out-of-credits (localized Antigravity rate-limit text).
 
+### Added
+
+**Git working tree on Changes**
+
+- Real `git status` / per-file diff beside AI Undo/Keep
+- Select files, commit message, Commit / Commit & push
+- GitHub push via connected `gh`; GitLab via stored PAT + askpass
+- Secret-path warning and local `user.name` / `user.email` prompt when needed
+
 ### Planned
 
-- Git changes tab — select files, commit message, commit & push
 - Branch switcher on the open project
 - Multiple Git remotes / accounts (GitLab hosts + PATs)
 

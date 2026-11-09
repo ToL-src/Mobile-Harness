@@ -227,6 +227,7 @@ import com.jarves.mh.model.DEEPSEEK_HARNESS_PROVIDERS
 import com.jarves.mh.model.DSH_PROTOCOL_PROVIDERS
 import com.jarves.mh.model.DiffLine
 import com.jarves.mh.model.DiffLineType
+import com.jarves.mh.model.GitFileStatus
 import com.jarves.mh.model.Project
 import com.jarves.mh.model.ProjectKind
 import com.jarves.mh.model.ProjectType
@@ -432,6 +433,23 @@ fun PocketDevApp(viewModel: MainViewModel = viewModel()) {
             onKeepChanges = viewModel::keepLastChanges,
             onUndoFileChange = viewModel::undoFileChange,
             onKeepFileChange = viewModel::keepFileChange,
+            onRefreshGitStatus = viewModel::refreshGitStatus,
+            onToggleGitFile = viewModel::toggleGitFile,
+            onSelectAllGitFiles = viewModel::selectAllGitFiles,
+            onGitCommitMessageChange = viewModel::setGitCommitMessage,
+            onCommitGit = viewModel::commitGitSelection,
+            onCommitAndPushGit = viewModel::commitAndPushGitSelection,
+            onPushGit = viewModel::pushPendingGitCommits,
+            onRequestDiscardGit = viewModel::requestDiscardGitSelection,
+            onConfirmDiscardGit = viewModel::confirmDiscardGitSelection,
+            onDismissDiscardGit = viewModel::dismissGitDiscard,
+            onRequestUndoGitCommit = viewModel::requestUndoLastGitCommit,
+            onConfirmUndoGitCommit = viewModel::confirmUndoLastGitCommit,
+            onDismissUndoGitCommit = viewModel::dismissUndoLastGitCommit,
+            onConfirmGitSecrets = viewModel::confirmGitSecretWarning,
+            onDismissGitSecrets = viewModel::dismissGitSecretWarning,
+            onSetGitIdentity = viewModel::setGitIdentity,
+            onDismissGitIdentity = viewModel::dismissGitIdentityPrompt,
             onCreateChat = viewModel::createChat,
             onSwitchChat = viewModel::switchChat,
             onTerminalRun = viewModel::requestProjectTerminalCommand,
@@ -4644,6 +4662,23 @@ private fun WorkspaceScreen(
     onKeepChanges: () -> Unit,
     onUndoFileChange: (String) -> Unit,
     onKeepFileChange: (String) -> Unit,
+    onRefreshGitStatus: () -> Unit,
+    onToggleGitFile: (String) -> Unit,
+    onSelectAllGitFiles: (Boolean) -> Unit,
+    onGitCommitMessageChange: (String) -> Unit,
+    onCommitGit: () -> Unit,
+    onCommitAndPushGit: () -> Unit,
+    onPushGit: () -> Unit,
+    onRequestDiscardGit: () -> Unit,
+    onConfirmDiscardGit: () -> Unit,
+    onDismissDiscardGit: () -> Unit,
+    onRequestUndoGitCommit: () -> Unit,
+    onConfirmUndoGitCommit: () -> Unit,
+    onDismissUndoGitCommit: () -> Unit,
+    onConfirmGitSecrets: () -> Unit,
+    onDismissGitSecrets: () -> Unit,
+    onSetGitIdentity: (String, String) -> Unit,
+    onDismissGitIdentity: () -> Unit,
     onCreateChat: () -> Unit,
     onSwitchChat: (String) -> Unit,
     onTerminalRun: (String) -> Unit,
@@ -4970,13 +5005,14 @@ private fun WorkspaceScreen(
         },
         bottomBar = {
             if (!keyboardVisible) NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
-                WorkspaceTab.entries.filter { it != WorkspaceTab.CHANGES }.forEach { tab ->
+                WorkspaceTab.entries.forEach { tab ->
                     NavigationBarItem(
                         selected = selectedTab == tab,
                         onClick = {
                             selectedTab = tab
                             if (tab == WorkspaceTab.FILES) onRefreshFiles()
                             if (tab == WorkspaceTab.TERMINAL) onTerminalOpened()
+                            if (tab == WorkspaceTab.CHANGES) onRefreshGitStatus()
                         },
                         icon = { Icon(tab.icon, stringResource(tab.labelRes)) },
                         label = { Text(stringResource(tab.labelRes), fontSize = 10.sp) },
@@ -5092,11 +5128,27 @@ private fun WorkspaceScreen(
                     compactHeader = true,
                 )
                 WorkspaceTab.CHANGES -> ChangesTab(
-                    state.changes,
-                    onUndoChanges,
-                    onKeepChanges,
-                    onUndoFileChange,
-                    onKeepFileChange,
+                    state = state,
+                    onUndo = onUndoChanges,
+                    onKeep = onKeepChanges,
+                    onUndoFile = onUndoFileChange,
+                    onKeepFile = onKeepFileChange,
+                    onRefreshGit = onRefreshGitStatus,
+                    onToggleGitFile = onToggleGitFile,
+                    onSelectAllGitFiles = onSelectAllGitFiles,
+                    onCommitMessageChange = onGitCommitMessageChange,
+                    onCommit = onCommitGit,
+                    onPush = onPushGit,
+                    onRequestDiscard = onRequestDiscardGit,
+                    onConfirmDiscard = onConfirmDiscardGit,
+                    onDismissDiscard = onDismissDiscardGit,
+                    onRequestUndoCommit = onRequestUndoGitCommit,
+                    onConfirmUndoCommit = onConfirmUndoGitCommit,
+                    onDismissUndoCommit = onDismissUndoGitCommit,
+                    onConfirmSecrets = onConfirmGitSecrets,
+                    onDismissSecrets = onDismissGitSecrets,
+                    onSetIdentity = onSetGitIdentity,
+                    onDismissIdentity = onDismissGitIdentity,
                 )
                 WorkspaceTab.PREVIEW -> PreviewTab(state.previewReady, state.previewUrl)
             }
@@ -7390,20 +7442,130 @@ private fun formatFileSize(bytes: Long): String = when {
 
 @Composable
 private fun ChangesTab(
-    changes: List<ChangeItem>,
+    state: AppUiState,
     onUndo: () -> Unit,
     onKeep: () -> Unit,
     onUndoFile: (String) -> Unit,
     onKeepFile: (String) -> Unit,
+    onRefreshGit: () -> Unit,
+    onToggleGitFile: (String) -> Unit,
+    onSelectAllGitFiles: (Boolean) -> Unit,
+    onCommitMessageChange: (String) -> Unit,
+    onCommit: () -> Unit,
+    onPush: () -> Unit,
+    onRequestDiscard: () -> Unit,
+    onConfirmDiscard: () -> Unit,
+    onDismissDiscard: () -> Unit,
+    onRequestUndoCommit: () -> Unit,
+    onConfirmUndoCommit: () -> Unit,
+    onDismissUndoCommit: () -> Unit,
+    onConfirmSecrets: () -> Unit,
+    onDismissSecrets: () -> Unit,
+    onSetIdentity: (String, String) -> Unit,
+    onDismissIdentity: () -> Unit,
 ) {
-    var expandedPath by rememberSaveable { mutableStateOf<String?>(null) }
+    val changes = state.changes
+    val gitTree = state.gitTree
+    var expandedAiPath by rememberSaveable { mutableStateOf<String?>(null) }
+    var expandedGitPath by rememberSaveable { mutableStateOf<String?>(null) }
+    var expandedUnpushedHash by rememberSaveable { mutableStateOf<String?>(null) }
+    var identityName by rememberSaveable { mutableStateOf("") }
+    var identityEmail by rememberSaveable { mutableStateOf("") }
+    LaunchedEffect(state.activeProject?.id) { onRefreshGit() }
+
+    if (state.gitUndoCommitConfirm) {
+        val head = gitTree.unpushedCommits.firstOrNull()
+        AlertDialog(
+            onDismissRequest = onDismissUndoCommit,
+            title = { Text(stringResource(R.string.ws_git_undo_commit_title)) },
+            text = {
+                Text(
+                    stringResource(
+                        R.string.ws_git_undo_commit_body,
+                        head?.let { "${it.shortHash} · ${it.subject}" } ?: "",
+                    ),
+                )
+            },
+            confirmButton = {
+                Button(onClick = onConfirmUndoCommit) { Text(stringResource(R.string.ws_git_undo_commit_confirm)) }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismissUndoCommit) { Text(stringResource(R.string.action_cancel)) }
+            },
+        )
+    }
+    if (state.gitDiscardConfirmPaths.isNotEmpty()) {
+        AlertDialog(
+            onDismissRequest = onDismissDiscard,
+            title = { Text(stringResource(R.string.ws_git_discard_title)) },
+            text = {
+                Text(stringResource(R.string.ws_git_discard_body, state.gitDiscardConfirmPaths.joinToString("\n")))
+            },
+            confirmButton = {
+                Button(onClick = onConfirmDiscard) { Text(stringResource(R.string.ws_git_discard_confirm)) }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismissDiscard) { Text(stringResource(R.string.action_cancel)) }
+            },
+        )
+    }
+    if (state.gitSecretWarningPaths.isNotEmpty()) {
+        AlertDialog(
+            onDismissRequest = onDismissSecrets,
+            title = { Text(stringResource(R.string.ws_git_secret_title)) },
+            text = {
+                Text(stringResource(R.string.ws_git_secret_body, state.gitSecretWarningPaths.joinToString("\n")))
+            },
+            confirmButton = {
+                Button(onClick = onConfirmSecrets) { Text(stringResource(R.string.ws_git_secret_continue)) }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismissSecrets) { Text(stringResource(R.string.action_cancel)) }
+            },
+        )
+    }
+    if (state.gitNeedsIdentity) {
+        AlertDialog(
+            onDismissRequest = onDismissIdentity,
+            title = { Text(stringResource(R.string.ws_git_identity_title)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(stringResource(R.string.ws_git_identity_body))
+                    OutlinedTextField(
+                        value = identityName,
+                        onValueChange = { identityName = it },
+                        label = { Text(stringResource(R.string.ws_git_identity_name)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    OutlinedTextField(
+                        value = identityEmail,
+                        onValueChange = { identityEmail = it },
+                        label = { Text(stringResource(R.string.ws_git_identity_email)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { onSetIdentity(identityName, identityEmail) },
+                    enabled = identityName.isNotBlank() && identityEmail.contains('@'),
+                ) { Text(stringResource(R.string.ws_git_identity_save)) }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismissIdentity) { Text(stringResource(R.string.action_cancel)) }
+            },
+        )
+    }
+
     LazyColumn(contentPadding = PaddingValues(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.38f),
-                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
             ) {
                 Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp)) {
                     Text(stringResource(R.string.tab_changes), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
@@ -7411,19 +7573,27 @@ private fun ChangesTab(
                 }
             }
         }
-        if (changes.isEmpty()) item { EmptyState(Icons.Default.Code, stringResource(R.string.ws_no_changes_yet), stringResource(R.string.ws_no_changes_desc)) }
-        items(changes, key = { it.path }) { change ->
-            val expanded = expandedPath == change.path
+
+        item {
+            Text(stringResource(R.string.ws_ai_session_changes), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+        }
+        if (changes.isEmpty()) {
+            item {
+                EmptyState(Icons.Default.Code, stringResource(R.string.ws_no_changes_yet), stringResource(R.string.ws_no_changes_desc))
+            }
+        }
+        items(changes, key = { "ai-${it.path}" }) { change ->
+            val expanded = expandedAiPath == change.path
             Card(Modifier.fillMaxWidth()) {
                 Column {
                     Row(
-                        Modifier.fillMaxWidth().clickable { expandedPath = if (expanded) null else change.path }.padding(15.dp),
+                        Modifier.fillMaxWidth().clickable { expandedAiPath = if (expanded) null else change.path }.padding(15.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Icon(Icons.Default.Description, null)
                         Spacer(Modifier.width(10.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(change.path, fontWeight = FontWeight.Medium, maxLines = 1)
+                            Text(change.path, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text(
                                 if (expanded) stringResource(R.string.ws_hide_diff) else stringResource(R.string.ws_tap_review_diff),
                                 fontSize = 11.sp,
@@ -7448,14 +7618,14 @@ private fun ChangesTab(
                         ) {
                             OutlinedButton(
                                 onClick = {
-                                    expandedPath = null
+                                    expandedAiPath = null
                                     onUndoFile(change.path)
                                 },
                                 modifier = Modifier.weight(1f),
                             ) { Text(stringResource(R.string.ws_undo_file)) }
                             Button(
                                 onClick = {
-                                    expandedPath = null
+                                    expandedAiPath = null
                                     onKeepFile(change.path)
                                 },
                                 modifier = Modifier.weight(1f),
@@ -7465,14 +7635,213 @@ private fun ChangesTab(
                 }
             }
         }
-        if (changes.isNotEmpty()) item {
-            Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                OutlinedButton(onClick = onUndo, Modifier.weight(1f)) { Text(stringResource(R.string.ws_undo_task)) }
-                Button(onClick = onKeep, Modifier.weight(1f)) { Text(stringResource(R.string.chat_keep_changes)) }
+        if (changes.isNotEmpty()) {
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    OutlinedButton(onClick = onUndo, Modifier.weight(1f)) { Text(stringResource(R.string.ws_undo_task)) }
+                    Button(onClick = onKeep, Modifier.weight(1f)) { Text(stringResource(R.string.chat_keep_changes)) }
+                }
+            }
+        }
+
+        if (gitTree.available || gitTree.error != null) {
+            item {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(stringResource(R.string.ws_git_working_tree), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                        val branchMeta = buildString {
+                            gitTree.branch?.let { append(stringResource(R.string.ws_git_branch, it)) }
+                            if (gitTree.aheadCount > 0) {
+                                if (isNotEmpty()) append(" · ")
+                                append(stringResource(R.string.ws_git_ahead, gitTree.aheadCount))
+                            }
+                        }
+                        if (branchMeta.isNotBlank()) {
+                            Text(branchMeta, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    IconButton(onClick = onRefreshGit, enabled = !gitTree.loading && !gitTree.committing && !gitTree.pushing) {
+                        Icon(Icons.Default.Refresh, stringResource(R.string.ws_git_refresh))
+                    }
+                }
+            }
+            if (gitTree.loading) {
+                item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
+            }
+            gitTree.error?.let { error ->
+                item { Text(error, color = MaterialTheme.colorScheme.error, fontSize = 12.sp) }
+            }
+            if (gitTree.unpushedCommits.isNotEmpty()) {
+                item {
+                    Text(stringResource(R.string.ws_git_unpushed_title), fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                }
+                items(gitTree.unpushedCommits, key = { "unpushed-${it.hash}" }) { commit ->
+                    val expanded = expandedUnpushedHash == commit.hash
+                    Card(Modifier.fillMaxWidth()) {
+                        Column {
+                            Row(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        expandedUnpushedHash = if (expanded) null else commit.hash
+                                    }
+                                    .padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(
+                                        "${commit.shortHash} · ${commit.subject}",
+                                        fontWeight = FontWeight.Medium,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    Text(
+                                        stringResource(R.string.ws_git_commit_files, commit.paths.size),
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                Text("+${commit.additions}", color = PocketGreen, fontSize = 12.sp)
+                                Spacer(Modifier.width(7.dp))
+                                Text("-${commit.deletions}", color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                            }
+                            if (expanded && commit.files.isNotEmpty()) {
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                                Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    commit.files.forEach { file ->
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(
+                                                file.path,
+                                                modifier = Modifier.weight(1f),
+                                                fontSize = 12.sp,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                            )
+                                            Text("+${file.additions}", color = PocketGreen, fontSize = 11.sp)
+                                            Spacer(Modifier.width(7.dp))
+                                            Text("-${file.deletions}", color = MaterialTheme.colorScheme.error, fontSize = 11.sp)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(
+                            onClick = onRequestUndoCommit,
+                            enabled = !gitTree.committing && !gitTree.pushing && !gitTree.loading,
+                            modifier = Modifier.weight(1f),
+                        ) { Text(stringResource(R.string.ws_git_undo_commit)) }
+                        Button(
+                            onClick = onPush,
+                            enabled = !gitTree.committing && !gitTree.pushing && !gitTree.loading,
+                            modifier = Modifier.weight(1f),
+                        ) { Text(stringResource(R.string.ws_git_push)) }
+                    }
+                }
+            }
+            if (!gitTree.loading && gitTree.files.isEmpty() && gitTree.unpushedCommits.isEmpty()) {
+                item {
+                    Text(stringResource(R.string.ws_git_no_local_changes), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                }
+            }
+            if (gitTree.files.isNotEmpty()) {
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(onClick = { onSelectAllGitFiles(true) }) { Text(stringResource(R.string.ws_git_select_all)) }
+                        TextButton(onClick = { onSelectAllGitFiles(false) }) { Text(stringResource(R.string.ws_git_deselect_all)) }
+                    }
+                }
+            }
+            items(gitTree.files, key = { "git-${it.path}" }) { file ->
+                val expanded = expandedGitPath == file.path
+                Card(Modifier.fillMaxWidth()) {
+                    Column {
+                        Row(
+                            Modifier.fillMaxWidth().padding(start = 4.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Checkbox(
+                                checked = file.selected,
+                                onCheckedChange = { onToggleGitFile(file.path) },
+                                enabled = !gitTree.committing,
+                            )
+                            Column(
+                                Modifier
+                                    .weight(1f)
+                                    .clickable { expandedGitPath = if (expanded) null else file.path },
+                            ) {
+                                Text(file.path, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(
+                                    gitStatusLabel(file.status),
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            Text("+${file.additions}", color = PocketGreen, fontSize = 12.sp)
+                            Spacer(Modifier.width(7.dp))
+                            Text("-${file.deletions}", color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                        }
+                        if (expanded) {
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                            Column(
+                                Modifier.fillMaxWidth().background(Color(0xFF0B0E14)).horizontalScroll(rememberScrollState()),
+                            ) {
+                                file.diffLines.forEach { line -> DiffLineRow(line) }
+                            }
+                        }
+                    }
+                }
+            }
+            if (gitTree.files.isNotEmpty()) {
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        OutlinedTextField(
+                            value = state.gitCommitMessage,
+                            onValueChange = onCommitMessageChange,
+                            label = { Text(stringResource(R.string.ws_git_commit_message)) },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !gitTree.committing,
+                            minLines = 2,
+                        )
+                        val busy = gitTree.committing || gitTree.pushing || gitTree.loading
+                        val canDiscard = gitTree.files.any { it.selected } && !busy
+                        val canCommit = canDiscard && state.gitCommitMessage.isNotBlank()
+                        val canPush = (gitTree.aheadCount > 0 || gitTree.unpushedCommits.isNotEmpty()) && !busy
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(onClick = onRequestDiscard, enabled = canDiscard, modifier = Modifier.weight(1f)) {
+                                Text(stringResource(R.string.ws_git_discard))
+                            }
+                            OutlinedButton(onClick = onCommit, enabled = canCommit, modifier = Modifier.weight(1f)) {
+                                Text(stringResource(R.string.ws_git_commit))
+                            }
+                            Button(onClick = onPush, enabled = canPush, modifier = Modifier.weight(1f)) {
+                                Text(stringResource(R.string.ws_git_push))
+                            }
+                        }
+                        if (gitTree.committing || gitTree.pushing) {
+                            LinearProgressIndicator(Modifier.fillMaxWidth())
+                        }
+                    }
+                }
             }
         }
     }
 }
+
+@Composable
+private fun gitStatusLabel(status: GitFileStatus): String = stringResource(
+    when (status) {
+        GitFileStatus.MODIFIED -> R.string.ws_git_status_modified
+        GitFileStatus.ADDED -> R.string.ws_git_status_added
+        GitFileStatus.DELETED -> R.string.ws_git_status_deleted
+        GitFileStatus.RENAMED -> R.string.ws_git_status_renamed
+        GitFileStatus.UNTRACKED -> R.string.ws_git_status_untracked
+        GitFileStatus.CONFLICT -> R.string.ws_git_status_conflict
+    },
+)
 
 @Composable
 private fun DiffLineRow(line: DiffLine) {
